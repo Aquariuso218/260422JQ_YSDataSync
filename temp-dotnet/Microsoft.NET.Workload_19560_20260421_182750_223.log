@@ -1,0 +1,14 @@
+[2026-04-21 18:27:50.296] [00004C68] === Logging started ===
+[2026-04-21 18:27:50.328] [00004C68] Executing: dotnet  build D:\1a_Projects\A_Project\金桥\260416数据同步\YYCAdmin\YYCAdmin-Net8\ZR.Service\ZR.Service.csproj -c Release -p:RestoreIgnoreFailedSources=true -v minimal, PID: 19560, PPID: 15164
+[2026-04-21 18:27:50.335] [00004C68] IsElevated: False
+[2026-04-21 18:27:50.335] [00004C68] Is64BitProcess: True
+[2026-04-21 18:27:50.335] [00004C68] RebootPending: False
+[2026-04-21 18:27:50.335] [00004C68] ProcessorArchitecture: amd64
+[2026-04-21 18:27:50.335] [00004C68] HostArchitecture: x64
+[2026-04-21 18:27:50.335] [00004C68] SdkDirectory: 8.0.413
+[2026-04-21 18:27:50.335] [00004C68] VerifySignatures: False
+[2026-04-21 18:27:50.335] [00004C68] SDK feature band: 8.0.400
+[2026-04-21 18:27:59.013] [00004C68] Shutting down
+[2026-04-21 18:27:59.013] [00004C68] Shutdown completed.
+[2026-04-21 18:27:59.013] [00004C68] Restart required: False
+[2026-04-21 18:27:59.016] [00004C68] === Logging ended ===
