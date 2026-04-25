@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 namespace ZR.Service.Business.Ys.Dtos
 {
     /// <summary>
-    /// YS 单据详情接口返回对象。
+    /// YS 结算单详情接口返回对象。
     /// </summary>
     public class YsBillDetailDto
     {
@@ -22,7 +22,7 @@ namespace ZR.Service.Business.Ys.Dtos
         /// <summary>
         /// 单据日期。
         /// </summary>
-        [JsonProperty("billDate")]
+        [JsonProperty("vouchdate")]
         public DateTime? BillDate { get; set; }
 
         /// <summary>
@@ -32,28 +32,16 @@ namespace ZR.Service.Business.Ys.Dtos
         public string Creator { get; set; }
 
         /// <summary>
-        /// 组织 Id。
+        /// 结算单表体。
         /// </summary>
-        [JsonProperty("accentity")]
-        public string Accentity { get; set; }
-
-        /// <summary>
-        /// 资金付款单表体。
-        /// </summary>
-        [JsonProperty("FundPayment_b")]
-        public List<YsFundBillBodyItemDto> FundPaymentBody { get; set; }
-
-        /// <summary>
-        /// 资金收款单表体。
-        /// </summary>
-        [JsonProperty("FundCollection_b")]
-        public List<YsFundBillBodyItemDto> FundCollectionBody { get; set; }
+        [JsonProperty("settleBench_b")]
+        public List<YsBillBodyItemDto> SettleBenchBody { get; set; }
     }
 
     /// <summary>
-    /// YS 资金单据表体行对象。
+    /// YS 结算单表体行对象。
     /// </summary>
-    public class YsFundBillBodyItemDto
+    public class YsBillBodyItemDto
     {
         /// <summary>
         /// 表体行 Id。
@@ -68,57 +56,93 @@ namespace ZR.Service.Business.Ys.Dtos
         public string MainId { get; set; }
 
         /// <summary>
-        /// 部门 Id。
+        /// 组织 Id。
         /// </summary>
-        [JsonProperty("dept")]
-        public string Dept { get; set; }
+        [JsonProperty("org")]
+        public string Org { get; set; }
 
         /// <summary>
-        /// 业务员 Id。
+        /// 部门编码。
         /// </summary>
-        [JsonProperty("operator")]
-        public string Operator { get; set; }
+        [JsonProperty("dept_code")]
+        public string DeptCode { get; set; }
 
         /// <summary>
-        /// 企业银行账户 Id。
+        /// 企业银行账号。
         /// </summary>
-        [JsonProperty("enterprisebankaccount")]
-        public string EnterpriseBankAccount { get; set; }
+        [JsonProperty("ourbankaccount_account")]
+        public string OurBankAccount { get; set; }
 
         /// <summary>
-        /// 结算方式 Id。
+        /// 企业银行账户名称。
         /// </summary>
-        [JsonProperty("settlemode")]
-        public string SettleMode { get; set; }
+        [JsonProperty("ourbankaccount_name")]
+        public string OurBankName { get; set; }
+
+        /// <summary>
+        /// 结算方式名称。
+        /// </summary>
+        [JsonProperty("settlemode_name")]
+        public string SettleModeName { get; set; }
 
         /// <summary>
         /// 结算状态。
         /// </summary>
-        [JsonProperty("settlestatus")]
-        public string SettleStatus { get; set; }
+        [JsonProperty("statementdetailstatus")]
+        public int? SettleStatus { get; set; }
 
         /// <summary>
         /// 款项类型名称。
         /// </summary>
-        [JsonProperty("quickType_name")]
+        [JsonProperty("proceedType_name")]
         public string QuickTypeName { get; set; }
+
+        /// <summary>
+        /// 表体收付款类型。
+        /// </summary>
+        [JsonProperty("receipttypeb")]
+        public int? ReceiptTypeBody { get; set; }
+
+        /// <summary>
+        /// 兼容部分返回中直接使用 receipttype 的情况。
+        /// </summary>
+        [JsonProperty("receipttype")]
+        public int? ReceiptType { get; set; }
 
         /// <summary>
         /// 往来对象类型。
         /// </summary>
-        [JsonProperty("caobject")]
-        public int? Caobject { get; set; }
+        [JsonProperty("counterpartytype")]
+        public string CounterpartyType { get; set; }
 
         /// <summary>
         /// 往来对象 Id。
         /// </summary>
-        [JsonProperty("oppositeobjectid")]
-        public string OppositeObjectId { get; set; }
+        [JsonProperty("counterpartyid")]
+        public string CounterpartyId { get; set; }
 
         /// <summary>
         /// 原币金额。
         /// </summary>
-        [JsonProperty("oriSum")]
-        public decimal? OriSum { get; set; }
+        [JsonProperty("originalcurrencyamt")]
+        public decimal? OriginalCurrencyAmount { get; set; }
+
+        /// <summary>
+        /// 兼容旧示例中出现的成功金额字段。
+        /// </summary>
+        [JsonProperty("sucessamount")]
+        public decimal? SuccessAmount { get; set; }
+
+        /// <summary>
+        /// 票据号。
+        /// </summary>
+        [JsonProperty("swbillno")]
+        public string NoteCode { get; set; }
+
+        /// <summary>
+        /// 来源交易类型。
+        /// </summary>
+        [JsonProperty("tradetype_name")]
+        public string TradetypeName { get; set; }
     }
 }

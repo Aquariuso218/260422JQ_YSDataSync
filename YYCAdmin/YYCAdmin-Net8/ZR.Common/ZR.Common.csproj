@@ -13,4 +13,8 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Infrastructure\ZR.Infrastructure.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="U8Helper.cs" />
+	</ItemGroup>
 </Project>

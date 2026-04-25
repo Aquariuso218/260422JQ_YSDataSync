@@ -32,12 +32,6 @@ namespace ZR.Service.Business.Ys.Dtos
         public string OpenVouchdateEnd { get; set; } = string.Empty;
 
         /// <summary>
-        /// 直接传递的审核状态过滤值。
-        /// </summary>
-        [JsonProperty("verifystate", NullValueHandling = NullValueHandling.Ignore)]
-        public string Verifystate { get; set; }
-
-        /// <summary>
         /// simpleVOs 方式的动态查询条件。
         /// </summary>
         [JsonProperty("simpleVOs", NullValueHandling = NullValueHandling.Ignore)]

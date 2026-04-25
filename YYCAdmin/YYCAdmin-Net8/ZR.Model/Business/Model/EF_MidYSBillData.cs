@@ -4,38 +4,38 @@ namespace ZR.Model.Business.Model
     [Tenant("0")]
     public class EF_MidYSBillData
     {
-        [SugarColumn(ColumnName = "id", IsPrimaryKey = true, Length = 50)]
-        public string Id { get; set; } = string.Empty;
+        [SugarColumn(ColumnName = "autoId", IsPrimaryKey = true, IsIdentity = true)]
+        public int AutoId { get; set; }
+        
+        [SugarColumn(ColumnName = "id",  Length = 50, IsNullable = true)]
+        public string Id { get; set; } 
 
         [SugarColumn(ColumnName = "mainid", Length = 50, IsNullable = true)]
         public string MainId { get; set; }
 
-        [SugarColumn(ColumnName = "code", Length = 50, IsNullable = true)]
-        public string Code { get; set; }
+        [SugarColumn(ColumnName = "cVouchCode", Length = 50, IsNullable = true)]
+        public string CVouchCode { get; set; }
 
         [SugarColumn(ColumnName = "billDate", IsNullable = true)]
         public DateTime? BillDate { get; set; }
 
-        [SugarColumn(ColumnName = "creator", Length = 50, IsNullable = true)]
-        public string Creator { get; set; }
+        [SugarColumn(ColumnName = "CMAKER", Length = 50, IsNullable = true)]
+        public string CMaker { get; set; }
 
         [SugarColumn(ColumnName = "orgCode", Length = 50, IsNullable = true)]
         public string OrgCode { get; set; }
 
-        [SugarColumn(ColumnName = "depcode", Length = 50, IsNullable = true)]
-        public string DepCode { get; set; }
+        [SugarColumn(ColumnName = "cDepCode", Length = 50, IsNullable = true)]
+        public string CDepCode { get; set; }
 
-        [SugarColumn(ColumnName = "operatorCode", Length = 50, IsNullable = true)]
-        public string OperatorCode { get; set; }
+        [SugarColumn(ColumnName = "cNatBankAccount", Length = 100, IsNullable = true)]
+        public string CNatBankAccount { get; set; }
 
-        [SugarColumn(ColumnName = "enterpriseBankAccountNo", Length = 100, IsNullable = true)]
-        public string EnterpriseBankAccountNo { get; set; }
+        [SugarColumn(ColumnName = "cNatBank", Length = 100, IsNullable = true)]
+        public string CNatBank { get; set; }
 
-        [SugarColumn(ColumnName = "enterpriseBankAccountName", Length = 100, IsNullable = true)]
-        public string EnterpriseBankAccountName { get; set; }
-
-        [SugarColumn(ColumnName = "settleModeCode", Length = 50, IsNullable = true)]
-        public string SettleModeCode { get; set; }
+        [SugarColumn(ColumnName = "cSSName", Length = 50, IsNullable = true)]
+        public string CSSName { get; set; }
 
         [SugarColumn(ColumnName = "settlestatus", IsNullable = true)]
         public int? SettleStatus { get; set; }
@@ -46,14 +46,26 @@ namespace ZR.Model.Business.Model
         [SugarColumn(ColumnName = "cVouchType", Length = 50, IsNullable = true)]
         public string CVouchType { get; set; }
 
-        [SugarColumn(ColumnName = "caobject", IsNullable = true)]
-        public int? Caobject { get; set; }
+        [SugarColumn(ColumnName = "cDwType", Length = 100, IsNullable = true)]
+        public string CDwType { get; set; }
 
-        [SugarColumn(ColumnName = "objectCode", Length = 50, IsNullable = true)]
-        public string ObjectCode { get; set; }
+        [SugarColumn(ColumnName = "cDwCode", Length = 100, IsNullable = true)]
+        public string CDwCode { get; set; }
 
-        [SugarColumn(ColumnName = "oriSum", DecimalDigits = 4, Length = 18, IsNullable = true)]
-        public decimal? OriSum { get; set; }
+        [SugarColumn(ColumnName = "iAmount", DecimalDigits = 4, Length = 18, IsNullable = true)]
+        public decimal? IAmount { get; set; }
+
+        [SugarColumn(ColumnName = "cNoteCode", Length = 100, IsNullable = true)]
+        public string CNoteCode { get; set; }
+
+        [SugarColumn(ColumnName = "tradetypeName", Length = 100, IsNullable = true)]
+        public string TradetypeName { get; set; }
+
+        [SugarColumn(ColumnName = "discountInterest", DecimalDigits = 4, Length = 18, IsNullable = true)]
+        public decimal? DiscountInterest { get; set; }
+
+        [SugarColumn(ColumnName = "noteTypeCode", Length = 100, IsNullable = true)]
+        public string NoteTypeCode { get; set; }
 
         [SugarColumn(ColumnName = "createTime")]
         public DateTime CreateTime { get; set; } = DateTime.Now;

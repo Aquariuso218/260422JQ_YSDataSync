@@ -39,7 +39,12 @@ function Assert-SourceContains {
 Assert-SourceContains 'ZR.Tasks\TaskScheduler\Job_YsBillSync.cs' 'class Job_YsBillSync' 'job class'
 Assert-SourceContains 'ZR.Service\Business\YsBillSyncService.cs' 'class YsBillSyncService' 'sync service class'
 Assert-SourceContains 'ZR.Service\Business\IService\IYsBillSyncService.cs' 'Task<string> SyncAsync(' 'sync service contract'
+Assert-SourceContains 'ZR.Service\Business\IService\IYsBillInstrumentFetchService.cs' 'interface IYsBillInstrumentFetchService' 'instrument fetch contract'
+Assert-SourceContains 'ZR.Service\Business\Ys\YsBillInstrumentFetchService.cs' 'class YsBillInstrumentFetchService' 'instrument fetch service class'
+Assert-SourceContains 'ZR.Service\Business\Ys\Dtos\YsInstrumentDtos.cs' 'class YsDiscountDetailResponseDataDto' 'instrument DTOs'
 Assert-SourceContains 'ZR.Model\Business\Model\EF_MidYSBillData.cs' 'class EF_MidYSBillData' 'mid table entity'
+Assert-SourceContains 'ZR.Model\Business\Model\EF_MidYSBillData.cs' 'DiscountInterest' 'discount interest field'
+Assert-SourceContains 'ZR.Model\Business\Model\EF_MidYSBillData.cs' 'NoteTypeCode' 'note type code field'
 Assert-SourceContains 'ZR.Model\Business\Model\EF_sysSyncLog.cs' 'class EF_sysSyncLog' 'sync log entity'
 Assert-SourceContains 'ZR.Admin.WebApi\Program.cs' 'AddHttpClient();' 'HttpClient registration'
 

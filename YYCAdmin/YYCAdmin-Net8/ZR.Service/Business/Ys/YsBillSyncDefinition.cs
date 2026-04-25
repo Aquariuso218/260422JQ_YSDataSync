@@ -12,16 +12,12 @@ namespace ZR.Service.Business.Ys
             string interfaceName,
             string listPath,
             string detailPath,
-            string bodyPropertyName,
-            string vouchType,
-            bool useSimpleVosVerifyFilter)
+            string bodyPropertyName)
         {
             InterfaceName = interfaceName;
             ListPath = listPath;
             DetailPath = detailPath;
             BodyPropertyName = bodyPropertyName;
-            VouchType = vouchType;
-            UseSimpleVosVerifyFilter = useSimpleVosVerifyFilter;
         }
 
         /// <summary>
@@ -45,34 +41,15 @@ namespace ZR.Service.Business.Ys
         public string BodyPropertyName { get; }
 
         /// <summary>
-        /// 写入中间表的单据类型名称。
-        /// </summary>
-        public string VouchType { get; }
-
-        /// <summary>
-        /// 是否使用 simpleVOs 方式传递审核状态过滤条件。
-        /// </summary>
-        public bool UseSimpleVosVerifyFilter { get; }
-
-        /// <summary>
         /// 当前支持的全部同步定义集合。
         /// </summary>
         public static readonly IReadOnlyList<YsBillSyncDefinition> All =
         [
             new(
-                "YS_FundPayment",
-                "/yonbip/fi/fundpayment/list",
-                "/yonbip/fi/fundpayment/detail",
-                "FundPayment_b",
-                "\u8d44\u91d1\u4ed8\u6b3e\u5355",
-                true),
-            new(
-                "YS_FundCollection",
-                "/yonbip/fi/fundcollection/list",
-                "/yonbip/fi/fundcollection/detail",
-                "FundCollection_b",
-                "\u8d44\u91d1\u6536\u6b3e\u5355",
-                false)
+                "YS_SettleBench",
+                "/yonbip/ctm/stwb/settlebench",
+                "/yonbip/ctm/settleBench/detail",
+                "settleBench_b")
         ];
     }
 }
