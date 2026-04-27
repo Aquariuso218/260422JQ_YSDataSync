@@ -48,9 +48,7 @@ namespace ZR.Service.Business.U8
                 .Where(x => (x.ProcessStatus == 0 || x.ProcessStatus == 2) && x.SettleStatus == YsSettledStatusValue)
                 .ToListAsync();
 
-            var rowsToSync = pendingRows
-                .Where(x => !string.IsNullOrWhiteSpace(x.QuickTypeName) && AllowedQuickTypesForU8Sync.Contains(x.QuickTypeName))
-                .ToList();
+            var rowsToSync = pendingRows.ToList();
             if (rowsToSync.Count == 0)
             {
                 return "U8同步: 无待同步数据";
@@ -64,6 +62,8 @@ namespace ZR.Service.Business.U8
                 try
                 {
                     var dto = BuildApCloseBillDto(row);
+                    var jsonDto = Newtonsoft.Json.JsonConvert.SerializeObject(dto);
+                    
                     var result = await _apCloseBillService.ApCloseBillAdd(dto);
                     
                     if (result.StartsWith("操作成功"))
@@ -119,7 +119,9 @@ namespace ZR.Service.Business.U8
                 cNoteCode = row.CNoteCode,
                 receiptDirection = ConvertReceiptDirection(row.CVouchType),
                 tradetypeName = row.TradetypeName,
-                iAmount = row.IAmount ?? 0
+                iAmount = row.IAmount ?? 0,
+                noteTypeCode = row.NoteTypeCode,
+                discountInterest = row.DiscountInterest ?? 0
             };
         }
 

@@ -24,5 +24,10 @@ namespace ZR.Service.Business.Ys
         /// YS 应用密钥。
         /// </summary>
         public string AppSecret { get; set; }
+
+        /// <summary>
+        /// 票据贴现接口使用的租户标识。
+        /// </summary>
+        public string YtenantId { get; set; }
     }
 }

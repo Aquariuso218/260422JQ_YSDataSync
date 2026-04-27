@@ -9,7 +9,7 @@ namespace ZR.Service.Business.IService
         /// </summary>
         /// <param name="jobParams">
         /// 任务中心界面透传的参数，支持
-        /// <c>type=settleBench|settle|all</c>，
+        /// <c>type=settleBench|settle|discount|expireCash|consignBank|all</c>，
         /// 同时兼容旧参数 <c>fundPayment</c>、<c>fundCollection</c>、<c>payment</c> 和 <c>receipt</c>。
         /// </param>
         /// <returns>返回本次同步的简要结果。</returns>
@@ -20,7 +20,7 @@ namespace ZR.Service.Business.IService
         /// </summary>
         /// <param name="jobParams">
         /// 任务中心界面透传的参数，支持
-        /// <c>type=settleBench|settle|all</c>，
+        /// <c>type=settleBench|settle|discount|expireCash|consignBank|all</c>，
         /// 同时兼容旧参数 <c>fundPayment</c>、<c>fundCollection</c>、<c>payment</c> 和 <c>receipt</c>。
         /// </param>
         /// <returns>返回本次刷新任务的简要结果。</returns>

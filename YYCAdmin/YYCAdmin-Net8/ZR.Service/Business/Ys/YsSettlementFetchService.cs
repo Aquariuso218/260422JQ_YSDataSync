@@ -70,8 +70,9 @@ namespace ZR.Service.Business.Ys
                 var definition = ResolveDefinitions(jobParams).First();
                 var pendingRows = await _midBillRepository.Queryable()
                     .Where(x => (x.SettleStatus == null || x.SettleStatus != 3)
-                    && (x.TradetypeName != "贴现办理" || x.TradetypeName != "到期兑付" || x.TradetypeName != "银行托收")
-                    )
+                        && x.MainId != null
+                        && x.MainId != ""
+                        && x.TradetypeName != "贴现办理" && x.TradetypeName != "到期兑付" && x.TradetypeName != "银行托收")
                     .ToListAsync();
 
                 if (pendingRows.Count == 0)
@@ -80,20 +81,25 @@ namespace ZR.Service.Business.Ys
                 }
 
                 var accessToken = await _apiClient.GetAccessTokenAsync();
-                var rowsToUpdate = await BuildRefreshRowsAsync(definition, accessToken, pendingRows);
-                if (rowsToUpdate.Count == 0)
+                var refreshChanges = await BuildRefreshRowsAsync(definition, accessToken, pendingRows);
+                if (refreshChanges.RowsToUpdate.Count == 0 && refreshChanges.RowsToDelete.Count == 0)
                 {
-                    return $"YS刷新: 检查{pendingRows.Count}条, 更新0条";
+                    return $"YS刷新: 检查{pendingRows.Count}条, 更新0条, 删除0条";
                 }
 
                 _db.Ado.BeginTran();
-                foreach (var row in rowsToUpdate)
+                if (refreshChanges.RowsToDelete.Count > 0)
+                {
+                    await _db.Deleteable<EF_MidYSBillData>().In(refreshChanges.RowsToDelete).ExecuteCommandAsync();
+                }
+
+                foreach (var row in refreshChanges.RowsToUpdate)
                 {
                     await _db.Updateable(row).ExecuteCommandAsync();
                 }
 
                 _db.Ado.CommitTran();
-                return $"YS刷新: 检查{pendingRows.Count}条, 更新{rowsToUpdate.Count}条";
+                return $"YS刷新: 检查{pendingRows.Count}条, 更新{refreshChanges.RowsToUpdate.Count}条, 删除{refreshChanges.RowsToDelete.Count}条";
             }
             catch (Exception ex)
             {
@@ -288,12 +294,13 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 生成未结算数据需要刷新的最新中间表行。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> BuildRefreshRowsAsync(
+        private async Task<(List<EF_MidYSBillData> RowsToUpdate, List<int> RowsToDelete)> BuildRefreshRowsAsync(
             YsBillSyncDefinition definition,
             string accessToken,
             List<EF_MidYSBillData> pendingRows)
         {
             var rowsToUpdate = new List<EF_MidYSBillData>();
+            var rowsToDelete = new List<int>();
             var detailCache = new Dictionary<string, YsBillDetailDto>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var pendingRow in pendingRows)
@@ -306,6 +313,7 @@ namespace ZR.Service.Business.Ys
                 var detail = await GetCachedDetailAsync(definition, pendingRow.MainId, accessToken, detailCache);
                 if (detail == null)
                 {
+                    rowsToDelete.Add(pendingRow.AutoId);
                     continue;
                 }
 
@@ -314,6 +322,7 @@ namespace ZR.Service.Business.Ys
                     .FirstOrDefault(x => string.Equals(x.Id, pendingRow.Id, StringComparison.OrdinalIgnoreCase));
                 if (item == null)
                 {
+                    rowsToDelete.Add(pendingRow.AutoId);
                     continue;
                 }
 
@@ -332,7 +341,7 @@ namespace ZR.Service.Business.Ys
                 rowsToUpdate.Add(latestRow);
             }
 
-            return rowsToUpdate;
+            return (rowsToUpdate, rowsToDelete.Distinct().ToList());
         }
 
         /// <summary>

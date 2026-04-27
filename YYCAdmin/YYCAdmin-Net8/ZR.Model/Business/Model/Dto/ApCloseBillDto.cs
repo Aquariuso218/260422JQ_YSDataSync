@@ -94,5 +94,9 @@ public class ApCloseBillDto
         /// 金额
         /// </summary>
         public decimal iAmount { get; set; }
-
+        
+        
+        public decimal discountInterest { get; set; }
+        
+        public string noteTypeCode { get; set; }
 }
