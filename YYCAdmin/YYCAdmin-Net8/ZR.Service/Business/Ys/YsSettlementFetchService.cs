@@ -14,6 +14,15 @@ namespace ZR.Service.Business.Ys
         private const string SyncStatusValue = "2";
         private const string CustomerTypeValue = "1";
         private const string VendorTypeValue = "2";
+        private const int SettledStatusValue = 3;
+        private const string FundPaymentVouchType = "资金付款";
+        private const string SpecialSettleModeName = "农行重庆白市支行";
+
+        private static readonly HashSet<string> AutoSettledOrgCodes =
+        [
+            "1001",
+            "1002"
+        ];
 
         private static readonly HashSet<string> AllowedTradeTypesForOtherCounterparties =
         [
@@ -408,6 +417,9 @@ namespace ZR.Service.Business.Ys
 
             var orgCode = await GetOrgCodeAsync(item.Org, accessToken);
             var dwCode = await GetDwCodeAsync(item.CounterpartyType, item.CounterpartyId, accessToken);
+            var settleModeName = NormalizeString(item.SettleModeName);
+            var vouchType = ConvertVouchType(item.ReceiptTypeBody ?? item.ReceiptType);
+            var settleStatus = ResolveInitialSettleStatus(orgCode, vouchType, settleModeName, item.SettleStatus);
 
             return new EF_MidYSBillData
             {
@@ -420,10 +432,10 @@ namespace ZR.Service.Business.Ys
                 CDepCode = NormalizeString(item.DeptCode),
                 CNatBankAccount = NormalizeString(item.OurBankAccount),
                 CNatBank = NormalizeString(item.OurBankName),
-                CSSName = NormalizeString(item.SettleModeName),
-                SettleStatus = item.SettleStatus ?? 0,
+                CSSName = settleModeName,
+                SettleStatus = settleStatus,
                 QuickTypeName = NormalizeString(item.QuickTypeName),
-                CVouchType = ConvertVouchType(item.ReceiptTypeBody ?? item.ReceiptType),
+                CVouchType = vouchType,
                 CDwType = ConvertDwType(item.CounterpartyType),
                 CDwCode = dwCode,
                 IAmount = item.OriginalCurrencyAmount ?? item.SuccessAmount ?? 0m,
@@ -456,6 +468,21 @@ namespace ZR.Service.Business.Ys
                 VendorTypeValue => "供应商",
                 _ => NormalizeString(counterpartyType)
             };
+        }
+
+        /// <summary>
+        /// 计算首次抓取时的默认结算状态。
+        /// </summary>
+        private static int ResolveInitialSettleStatus(string orgCode, string vouchType, string settleModeName, int? settleStatus)
+        {
+            if (AutoSettledOrgCodes.Contains(orgCode)
+                && string.Equals(vouchType, FundPaymentVouchType, StringComparison.Ordinal)
+                && string.Equals(settleModeName, SpecialSettleModeName, StringComparison.Ordinal))
+            {
+                return SettledStatusValue;
+            }
+
+            return settleStatus ?? 0;
         }
 
         /// <summary>

@@ -1,11 +1,12 @@
-﻿using System.Data;
+using System.Data;
 using ZR.Model.Business.Model.Dto;
+using ZR.Service.Business.U8.Dtos;
 
 namespace ZR.Service.Business.IService;
 
 public interface IApCloseBillService 
 {
-    Task<string> ApCloseBillAdd(ApCloseBillDto apCloseBill);
+    Task<resultDto> ApCloseBillAdd(ApCloseBillDto apCloseBill);
 
     DataTable getU8VouchId(string orgDbName, string cAccId, string cVouchType, int iAmount,
         string RemoteId = "00");

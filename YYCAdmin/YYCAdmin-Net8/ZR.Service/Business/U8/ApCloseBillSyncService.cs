@@ -66,17 +66,18 @@ namespace ZR.Service.Business.U8
                     
                     var result = await _apCloseBillService.ApCloseBillAdd(dto);
                     
-                    if (result.StartsWith("操作成功"))
+                    if (result.success)
                     {
                         row.ProcessStatus = 1;
-                        row.ProcessMsg = result;
+                        row.ProcessMsg = result.msg;
+                        row.U8Code = result.code;
                         row.SynTime = DateTime.Now;
                         successCount++;
                     }
                     else
                     {
                         row.ProcessStatus = 2;
-                        row.ProcessMsg = result;
+                        row.ProcessMsg = result.msg;
                         failCount++;
                     }
                 }
