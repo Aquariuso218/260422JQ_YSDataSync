@@ -1,89 +1,96 @@
-// base color
-$blue: #324157;
-$light-blue: #3a71a8;
-$red: #c03639;
-$pink: #e65d6e;
-$green: #30b08f;
-$tiffany: #4ab7bd;
-$yellow: #fec171;
-$panGreen: #30b08f;
+// base color (Modern SaaS Palette)
+$blue: #1677ff; // Ant Design V5 Blue
+$light-blue: #69b1ff;
+$red: #ff4d4f;
+$pink: #eb2f96;
+$green: #52c41a;
+$tiffany: #13c2c2;
+$yellow: #faad14;
+$panGreen: #52c41a;
 
 // 默认菜单主题风格
 :root {
   --base-text-color-rgba: rgba(0, 0, 0, 0.85);
-  --base-menu-background: #fff;
+  --base-menu-background: #ffffff;
   --base-sidebar-width: 220px;
   // 左侧菜单宽度
   --el-aside-width: 220px;
   //底部高度
-  --base-footer-height: 30px;
-  --base-tags-height: 34px;
-  --base-header-height: 50px;
+  --base-footer-height: 40px;
+  --base-tags-height: 38px;
+  --base-header-height: 56px;
   //登录框宽度
-  --base-login-width: 360px;
+  --base-login-width: 380px;
 
   // 侧边栏图标大小
-  --el-menu-icon-width: 14px;
+  --el-menu-icon-width: 16px;
 
-  --el-menu-horizontal-height: 50px;
+  --el-menu-horizontal-height: 56px;
 
-  --vxe-table-column-padding-default: 7px 0 !important;
+  --vxe-table-column-padding-default: 10px 0 !important;
+
+  // 全局组件圆角
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 20px;
 }
 
 /***侧边栏深色配置***/
 [data-theme='theme-black'] {
-  --base-menu-background: #324157;
+  --base-menu-background: #001529; // 经典的高级黑蓝
   --base-logo-title-color: #ffffff;
-  --base-topBar-background: #324157;
-  --base-topBar-color: #fff;
+  --base-topBar-background: #ffffff;
+  --base-topBar-color: rgba(0, 0, 0, 0.85);
 
-  // el-ement ui 设置
-  // --el-fill-color-blank: #304156;
-  --el-text-color-primary: #e5eaf3;
+  --el-text-color-primary: rgba(255, 255, 255, 0.85);
   --base-color-white: #ffffff;
-  --el-menu-text-color: var(--el-text-color-primary);
+  --el-menu-text-color: rgba(255, 255, 255, 0.65);
 }
-// 黑色主题
+
+// 黑色主题 (Dark Mode Optimization)
 html.dark {
   /* custom dark bg color */
-  // --el-bg-color: #141414;
+  --el-bg-color: #141414;
+  --el-bg-color-page: #000000;
+  --el-bg-color-overlay: #1f1f1f;
+  
   --base-color-white: #ffffff;
-  --base-text-color-rgba: #ffffff;
-  --base-menu-background: #000;
-  --base-topBar-background: #000;
+  --base-text-color-rgba: rgba(255, 255, 255, 0.85);
+  --base-menu-background: #141414;
+  --base-topBar-background: #141414;
 
   // vxe-table黑色样式
-  --vxe-font-color: #98989e;
-  --vxe-primary-color: #2c7ecf;
-  --vxe-icon-background-color: #98989e;
-  --vxe-table-font-color: #98989e;
-  --vxe-table-resizable-color: #95969a;
-  --vxe-table-header-background-color: #28282a;
-  --vxe-table-body-background-color: #151518;
-  --vxe-table-background-color: #4a5663;
+  --vxe-font-color: rgba(255, 255, 255, 0.85);
+  --vxe-primary-color: #1677ff;
+  --vxe-icon-background-color: #434343;
+  --vxe-table-font-color: rgba(255, 255, 255, 0.85);
+  --vxe-table-resizable-color: #434343;
+  --vxe-table-header-background-color: #1d1d1d;
+  --vxe-table-body-background-color: #141414;
+  --vxe-table-background-color: #141414;
   --vxe-table-border-width: 1px;
-  --vxe-table-border-color: #37373a;
+  --vxe-table-border-color: #303030;
 
   .current-row {
-    color: #e65d6e;
+    color: #ff4d4f;
   }
 
   .header-search {
     .el-select {
-      background-color: #000;
+      background-color: #1f1f1f;
     }
   }
 
   // wangEditor
-  --w-e-textarea-bg-color: #111;
-  --w-e-textarea-color: #fff;
+  --w-e-textarea-bg-color: #141414;
+  --w-e-textarea-color: rgba(255, 255, 255, 0.85);
 
-  --w-e-toolbar-color: #fff;
-  --w-e-toolbar-bg-color: #111;
-  --w-e-toolbar-active-color: #ccc;
-  --w-e-toolbar-active-bg-color: #111;
-  /* ...其他... */
+  --w-e-toolbar-color: rgba(255, 255, 255, 0.85);
+  --w-e-toolbar-bg-color: #1f1f1f;
+  --w-e-toolbar-active-color: #1677ff;
+  --w-e-toolbar-active-bg-color: #141414;
 }
+
 html.cafe {
   filter: sepia(0.9) hue-rotate(315deg) brightness(0.9);
 }

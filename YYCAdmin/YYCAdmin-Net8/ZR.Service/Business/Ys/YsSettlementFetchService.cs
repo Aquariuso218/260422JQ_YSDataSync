@@ -1,7 +1,7 @@
 using Infrastructure.Attribute;
 using SqlSugar;
 using SqlSugar.IOC;
-using ZR.Model.Business.Model;
+using ZR.Model.Business;
 using ZR.Repository;
 using ZR.Service.Business.IService;
 using ZR.Service.Business.Ys.Dtos;
@@ -11,6 +11,8 @@ namespace ZR.Service.Business.Ys
     [AppService(ServiceType = typeof(IYsSettlementFetchService), ServiceLifetime = LifeTime.Transient)]
     public class YsSettlementFetchService : IYsSettlementFetchService
     {
+        private const string OtherTypeValue = "4";
+
         private const string SyncStatusValue = "2";
         private const string CustomerTypeValue = "1";
         private const string VendorTypeValue = "2";
@@ -33,7 +35,7 @@ namespace ZR.Service.Business.Ys
 
         private readonly YsApiClient _apiClient;
         private readonly ISqlSugarClient _db;
-        private readonly BaseRepository<EF_MidYSBillData> _midBillRepository;
+        private readonly BaseRepository<EfMidysbilldata> _midBillRepository;
         private readonly BaseRepository<EF_sysSyncLog> _syncLogRepository;
         private readonly Dictionary<string, string> _orgCodeCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _customerCodeCache = new(StringComparer.OrdinalIgnoreCase);
@@ -47,7 +49,7 @@ namespace ZR.Service.Business.Ys
         {
             _apiClient = new YsApiClient(httpClientFactory);
             _db = DbScoped.SugarScope.GetConnectionScope(0);
-            _midBillRepository = new BaseRepository<EF_MidYSBillData>(_db);
+            _midBillRepository = new BaseRepository<EfMidysbilldata>(_db);
             _syncLogRepository = new BaseRepository<EF_sysSyncLog>(_db);
         }
 
@@ -58,10 +60,11 @@ namespace ZR.Service.Business.Ys
         /// <returns>返回本次同步的简要结果字符串。</returns>
         public async Task<string> SyncAsync(string jobParams = null)
         {
+            var isCompensation = IsCompensation(jobParams);
             var messages = new List<string>();
             foreach (var definition in ResolveDefinitions(jobParams))
             {
-                messages.Add(await SyncSingleDefinitionAsync(definition));
+                messages.Add(await SyncSingleDefinitionAsync(definition, isCompensation));
             }
 
             return string.Join(" | ", messages);
@@ -78,10 +81,11 @@ namespace ZR.Service.Business.Ys
             {
                 var definition = ResolveDefinitions(jobParams).First();
                 var pendingRows = await _midBillRepository.Queryable()
-                    .Where(x => (x.SettleStatus == null || x.SettleStatus != 3)
-                        && x.MainId != null
-                        && x.MainId != ""
-                        && x.TradetypeName != "贴现办理" && x.TradetypeName != "到期兑付" && x.TradetypeName != "银行托收")
+                    .Where(x => x.CDwType != "其他" 
+                                && (x.ProcessStatus != 1 || x.ProcessStatus != 3) 
+                                && x.SettleStatus != SettledStatusValue
+                                && x.MainId != null && x.MainId != ""
+                                && x.TradetypeName != "贴现办理" && x.TradetypeName != "到期兑付" && x.TradetypeName != "银行托收")
                     .ToListAsync();
 
                 if (pendingRows.Count == 0)
@@ -99,7 +103,7 @@ namespace ZR.Service.Business.Ys
                 _db.Ado.BeginTran();
                 if (refreshChanges.RowsToDelete.Count > 0)
                 {
-                    await _db.Deleteable<EF_MidYSBillData>().In(refreshChanges.RowsToDelete).ExecuteCommandAsync();
+                    await _db.Deleteable<EfMidysbilldata>().In(refreshChanges.RowsToDelete).ExecuteCommandAsync();
                 }
 
                 foreach (var row in refreshChanges.RowsToUpdate)
@@ -120,11 +124,22 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 执行单个结算单定义的完整同步流程。
         /// </summary>
-        private async Task<string> SyncSingleDefinitionAsync(YsBillSyncDefinition definition)
+        private async Task<string> SyncSingleDefinitionAsync(YsBillSyncDefinition definition, bool isCompensation)
         {
             var syncEndTime = DateTime.Now;
-            var syncStartTime = await GetLastSuccessEndTimeAsync(definition.InterfaceName)
-                ?? syncEndTime.AddDays(-YsBillSyncConstants.FirstSyncFallbackDays);
+            var interfaceName = isCompensation ? $"{definition.InterfaceName}_Compensation" : definition.InterfaceName;
+            
+            DateTime syncStartTime;
+            if (isCompensation)
+            {
+                // 补单业务：固定同步起点为上月 1 号的 0 点
+                syncStartTime = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-1);
+            }
+            else
+            {
+                syncStartTime = await GetLastSuccessEndTimeAsync(interfaceName)
+                    ?? syncEndTime.AddDays(-YsBillSyncConstants.FirstSyncFallbackDays);
+            }
 
             try
             {
@@ -134,16 +149,16 @@ namespace ZR.Service.Business.Ys
 
                 _db.Ado.BeginTran();
                 await UpsertMidRowsAsync(rows);
-                await InsertSyncLogAsync(definition.InterfaceName, syncStartTime, syncEndTime, rows.Count, 1, null);
+                await InsertSyncLogAsync(interfaceName, syncStartTime, syncEndTime, rows.Count, 1, null);
                 _db.Ado.CommitTran();
 
-                return $"{definition.InterfaceName}: synced {rows.Count} rows";
+                return $"{interfaceName}: synced {rows.Count} rows";
             }
             catch (Exception ex)
             {
                 _db.Ado.RollbackTran();
-                await InsertFailureLogSafelyAsync(definition.InterfaceName, syncStartTime, syncEndTime, ex);
-                return $"{definition.InterfaceName}: failed - {ex.Message}";
+                await InsertFailureLogSafelyAsync(interfaceName, syncStartTime, syncEndTime, ex);
+                return $"{interfaceName}: failed - {ex.Message}";
             }
         }
 
@@ -225,12 +240,12 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 拉取单据详情，并映射为中间表数据行。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> BuildMidRowsAsync(
+        private async Task<List<EfMidysbilldata>> BuildMidRowsAsync(
             YsBillSyncDefinition definition,
             string accessToken,
             IEnumerable<string> ids)
         {
-            var rows = new List<EF_MidYSBillData>();
+            var rows = new List<EfMidysbilldata>();
 
             foreach (var id in ids)
             {
@@ -303,12 +318,12 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 生成未结算数据需要刷新的最新中间表行。
         /// </summary>
-        private async Task<(List<EF_MidYSBillData> RowsToUpdate, List<int> RowsToDelete)> BuildRefreshRowsAsync(
+        private async Task<(List<EfMidysbilldata> RowsToUpdate, List<int> RowsToDelete)> BuildRefreshRowsAsync(
             YsBillSyncDefinition definition,
             string accessToken,
-            List<EF_MidYSBillData> pendingRows)
+            List<EfMidysbilldata> pendingRows)
         {
-            var rowsToUpdate = new List<EF_MidYSBillData>();
+            var rowsToUpdate = new List<EfMidysbilldata>();
             var rowsToDelete = new List<int>();
             var detailCache = new Dictionary<string, YsBillDetailDto>(StringComparer.OrdinalIgnoreCase);
 
@@ -341,6 +356,7 @@ namespace ZR.Service.Business.Ys
                     continue;
                 }
 
+                latestRow.AutoId = pendingRow.AutoId;
                 latestRow.CreateTime = pendingRow.CreateTime;
                 latestRow.ProcessStatus = pendingRow.ProcessStatus;
                 latestRow.ProcessMsg = pendingRow.ProcessMsg;
@@ -373,6 +389,15 @@ namespace ZR.Service.Business.Ys
                 new Dictionary<string, string> { ["id"] = mainId },
                 accessToken);
 
+            // 检查详情接口返回是否代表结算单已被删除
+            if (response != null && string.Equals(response.Code, "999", StringComparison.OrdinalIgnoreCase)
+                && response.Message != null && response.Message.Contains("settleBench_bList\" is null"))
+            {
+                // 标记为已被删除，缓存为 null 并返回 null，后续逻辑会将其加入 rowsToDelete 进行物理删除
+                detailCache[cacheKey] = null;
+                return null;
+            }
+
             EnsureSuccess(response, $"{definition.InterfaceName} detail");
             var detail = response.Data;
             detailCache[cacheKey] = detail;
@@ -396,10 +421,24 @@ namespace ZR.Service.Business.Ys
         /// </summary>
         private static bool ShouldSyncBodyItem(YsBillBodyItemDto item)
         {
-            if ((string.Equals(item.CounterpartyType, CustomerTypeValue, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(item.CounterpartyType, VendorTypeValue, StringComparison.OrdinalIgnoreCase)) && ! AllowedTradeTypesForOtherCounterparties.Contains(item.TradetypeName)) 
+            //主要数据
+            if ((string.Equals(item.CounterpartyType, CustomerTypeValue, StringComparison.OrdinalIgnoreCase) 
+                || string.Equals(item.CounterpartyType, VendorTypeValue, StringComparison.OrdinalIgnoreCase)) 
+                && !AllowedTradeTypesForOtherCounterparties.Contains(item.TradetypeName))
             {
                 return true;
+            }
+            else {
+
+                //银企联数据
+                if (string.Equals(item.CounterpartyType, OtherTypeValue, StringComparison.OrdinalIgnoreCase)
+                    && !AllowedTradeTypesForOtherCounterparties.Contains(item.TradetypeName) 
+                    && item.ReceiptTypeBody == 2
+                    && string.Equals(item.SettleModeName, SpecialSettleModeName, StringComparison.OrdinalIgnoreCase)
+                    && item.TradetypeName == "其他付款") 
+                {
+                    return true;
+                }       
             }
 
             return false;
@@ -408,7 +447,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 将一条 YS 详情表体数据映射为同步实体。
         /// </summary>
-        private async Task<EF_MidYSBillData> MapRowAsync(YsBillDetailDto detail, YsBillBodyItemDto item, string accessToken)
+        private async Task<EfMidysbilldata> MapRowAsync(YsBillDetailDto detail, YsBillBodyItemDto item, string accessToken)
         {
             if (string.IsNullOrWhiteSpace(item.Id))
             {
@@ -416,12 +455,42 @@ namespace ZR.Service.Business.Ys
             }
 
             var orgCode = await GetOrgCodeAsync(item.Org, accessToken);
-            var dwCode = await GetDwCodeAsync(item.CounterpartyType, item.CounterpartyId, accessToken);
+            if (string.IsNullOrEmpty(orgCode)) {
+                orgCode = await GetOrgCodeAsync(detail.accentity, accessToken);
+            }
+
             var settleModeName = NormalizeString(item.SettleModeName);
             var vouchType = ConvertVouchType(item.ReceiptTypeBody ?? item.ReceiptType);
             var settleStatus = ResolveInitialSettleStatus(orgCode, vouchType, settleModeName, item.SettleStatus);
 
-            return new EF_MidYSBillData
+            string dwCode = "";
+            string cbank = "";
+            //如果结算数据类型为其他，则不区分客户供应商，直接获取对象名称
+            if (string.Equals(item.CounterpartyType, OtherTypeValue, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrEmpty(item.counterpartyname))
+                {
+                    dwCode = item.counterpartyname;
+                }
+
+                //截取开户行信息item.cbranch,中的XX银行
+                if (!string.IsNullOrEmpty(item.cbranch))
+                {
+                    // 查找“银行”两个字的位置
+                    int index = item.cbranch.IndexOf("银行");
+                    if (index > 0)
+                    {
+                        // 从开头截取到“银行”二字结束
+                        cbank = item.cbranch.Substring(0, index + 2);
+                    }
+                }
+            }
+            else
+            {
+                dwCode = await GetDwCodeAsync(item.CounterpartyType, item.CounterpartyId, accessToken);
+            }
+
+            return new EfMidysbilldata
             {
                 Id = item.Id,
                 MainId = NormalizeString(item.MainId ?? detail.Id),
@@ -440,9 +509,18 @@ namespace ZR.Service.Business.Ys
                 CDwCode = dwCode,
                 IAmount = item.OriginalCurrencyAmount ?? item.SuccessAmount ?? 0m,
                 CNoteCode = NormalizeString(item.NoteCode),
-                TradetypeName = NormalizeString(item.TradetypeName)
+                TradetypeName = NormalizeString(item.TradetypeName),
+                crBankNo = NormalizeString(item.crBankNo),
+                caccountNum = NormalizeString(item.caccountNum),
+                caccountName = NormalizeString(item.caccountName),
+                cbank = NormalizeString(cbank),
+                cbranch = NormalizeString(item.cbranch),
+                cdigest = NormalizeString(item.cdigest),
+                // 转换空字符串 "" 和空格为 null 妥善处理
+                ReceiptDirection = string.IsNullOrWhiteSpace(item.ReceiptDirection) ? null : item.ReceiptDirection.Trim(),
             };
         }
+
 
         /// <summary>
         /// 将收付款类型转换为中间表单据类型名称。
@@ -466,6 +544,7 @@ namespace ZR.Service.Business.Ys
             {
                 CustomerTypeValue => "客户",
                 VendorTypeValue => "供应商",
+                OtherTypeValue => "其他",
                 _ => NormalizeString(counterpartyType)
             };
         }
@@ -506,7 +585,7 @@ namespace ZR.Service.Business.Ys
                 accessToken);
 
             EnsureSuccess(response, "org archive");
-            var code = NormalizeString(response.Data?.Code);
+            var code = ExtractParentOrgCode(NormalizeString(response.Data?.Code));
             _orgCodeCache[orgId] = code;
             return code;
         }
@@ -516,6 +595,9 @@ namespace ZR.Service.Business.Ys
         /// </summary>
         private async Task<string> GetDwCodeAsync(string counterpartyType, string counterpartyId, string accessToken)
         {
+            //银企联数据，当对象类型为其他时。
+
+
             if (string.IsNullOrWhiteSpace(counterpartyId))
             {
                 return string.Empty;
@@ -580,6 +662,20 @@ namespace ZR.Service.Business.Ys
         }
 
         /// <summary>
+        /// 从子组织编码中提取前四位主组织编码。
+        /// YS 返回的组织编码为子组织编码，其前四位为主组织编码。
+        /// </summary>
+        private static string ExtractParentOrgCode(string orgCode)
+        {
+            if (string.IsNullOrWhiteSpace(orgCode))
+            {
+                return string.Empty;
+            }
+
+            return orgCode.Length >= 4 ? orgCode[..4] : orgCode;
+        }
+
+        /// <summary>
         /// 校验 YS 通用响应契约是否成功。
         /// </summary>
         private static void EnsureSuccess<T>(YsApiResponseDto<T> response, string actionName)
@@ -593,7 +689,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 按行 Id 写入新数据，已存在数据直接跳过。
         /// </summary>
-        private async Task UpsertMidRowsAsync(List<EF_MidYSBillData> rows)
+        private async Task UpsertMidRowsAsync(List<EfMidysbilldata> rows)
         {
             if (rows.Count == 0)
             {
@@ -698,7 +794,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 判断刷新任务是否需要更新当前中间表行。
         /// </summary>
-        private static bool NeedsRefreshUpdate(EF_MidYSBillData currentRow, EF_MidYSBillData latestRow)
+        private static bool NeedsRefreshUpdate(EfMidysbilldata currentRow, EfMidysbilldata latestRow)
         {
             return !string.Equals(currentRow.MainId, latestRow.MainId, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(currentRow.CVouchCode, latestRow.CVouchCode, StringComparison.OrdinalIgnoreCase)
@@ -716,7 +812,26 @@ namespace ZR.Service.Business.Ys
                 || !string.Equals(currentRow.CDwCode, latestRow.CDwCode, StringComparison.OrdinalIgnoreCase)
                 || currentRow.IAmount != latestRow.IAmount
                 || !string.Equals(currentRow.CNoteCode, latestRow.CNoteCode, StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(currentRow.TradetypeName, latestRow.TradetypeName, StringComparison.OrdinalIgnoreCase);
+                || !string.Equals(currentRow.TradetypeName, latestRow.TradetypeName, StringComparison.OrdinalIgnoreCase)
+                || currentRow.ReceiptDirection != latestRow.ReceiptDirection;
+        }
+
+        /// <summary>
+        /// 解析任务参数中是否指定了补单业务标识。
+        /// </summary>
+        private static bool IsCompensation(string jobParams)
+        {
+            if (string.IsNullOrWhiteSpace(jobParams))
+            {
+                return false;
+            }
+
+            var parameters = jobParams.Split(['&', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(part => part.Split('=', 2, StringSplitOptions.TrimEntries))
+                .Where(parts => parts.Length == 2)
+                .ToDictionary(parts => parts[0], parts => parts[1], StringComparer.OrdinalIgnoreCase);
+
+            return parameters.TryGetValue("isCompensation", out var value) && bool.TryParse(value, out var result) && result;
         }
     }
 }

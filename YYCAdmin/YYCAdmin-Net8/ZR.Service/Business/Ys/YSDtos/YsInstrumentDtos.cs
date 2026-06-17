@@ -100,7 +100,7 @@ namespace ZR.Service.Business.Ys.Dtos
         [JsonProperty("discountBankAccount")]
         public string DiscountBankAccount { get; set; }
 
-        [JsonProperty("discountMoney")]
+        [JsonProperty("discountAmount")]
         public decimal? DiscountMoney { get; set; }
 
         [JsonProperty("noteno")]

@@ -1,4 +1,4 @@
-﻿namespace ZR.Model.Business.Model.Dto;
+namespace ZR.Model.Business.Dto;
 
 public class ApNoteDto
 {

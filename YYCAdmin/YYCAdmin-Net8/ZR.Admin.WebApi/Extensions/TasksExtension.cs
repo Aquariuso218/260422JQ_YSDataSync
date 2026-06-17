@@ -1,4 +1,4 @@
-﻿using Quartz.Spi;
+using Quartz.Spi;
 using SqlSugar;
 using SqlSugar.IOC;
 using ZR.Model.System;
@@ -34,18 +34,41 @@ namespace ZR.Admin.WebApi.Extensions
         {
             ITaskSchedulerServer _schedulerServer = app.ApplicationServices.GetRequiredService<ITaskSchedulerServer>();
 
-            var tasks = DbScoped.SugarScope.Queryable<SysTasks>()
-                .Where(m => m.IsStart == 1).ToListAsync();
-
-            //程序启动后注册所有定时任务
-            foreach (var task in tasks.Result)
+            Task.Run(async () =>
             {
-                var result = _schedulerServer.AddTaskScheduleAsync(task);
-                if (result.Result.IsSuccess())
+                try
                 {
-                    Console.WriteLine($"注册任务[{task.Name}]ID：{task.ID}成功");
+                    Console.WriteLine("====== 开始异步加载启动定时任务 ======");
+                    var tasks = await DbScoped.SugarScope.Queryable<SysTasks>()
+                        .Where(m => m.IsStart == 1)
+                        .ToListAsync();
+
+                    if (tasks == null || tasks.Count == 0)
+                    {
+                        Console.WriteLine("未找到状态为已开启的定时任务。");
+                        return;
+                    }
+
+                    foreach (var task in tasks)
+                    {
+                        var result = await _schedulerServer.AddTaskScheduleAsync(task);
+                        if (result.IsSuccess())
+                        {
+                            Console.WriteLine($"[Success] 自动注册定时任务 [{task.Name}] (ID: {task.ID}) 成功");
+                        }
+                        else
+                        {
+                            result.TryGetValue("msg", out var msg);
+                            Console.WriteLine($"[Fail] 自动注册定时任务 [{task.Name}] 失败，原因: {msg}");
+                        }
+                    }
+                    Console.WriteLine("====== 异步加载启动定时任务结束 ======");
                 }
-            }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Error] 系统启动注册定时任务时抛出异常: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
 
             return app;
         }

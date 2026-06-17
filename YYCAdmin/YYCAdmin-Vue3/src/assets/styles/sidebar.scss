@@ -23,13 +23,53 @@
     // 去掉el-menu边框
     .el-menu {
       border: none;
+      background-color: transparent;
     }
 
-    // [class^='el-icon'] {
-    //   width: 1em;
-    //   height: 1em;
-    //   font-size: unset;
-    // }
+    // 现代化菜单项样式 (Modern Menu Items)
+    .el-menu-item, .el-sub-menu__title {
+      border-radius: var(--el-border-radius-base);
+      margin: 4px 12px;
+      height: 44px;
+      line-height: 44px;
+      width: calc(100% - 24px);
+      transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+      
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04) !important;
+      }
+    }
+    
+    // 暗色模式下的悬停调整
+    [data-theme='theme-black'] & .el-menu-item:hover,
+    [data-theme='theme-black'] & .el-sub-menu__title:hover {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    // 激活状态样式
+    .el-menu-item.is-active {
+      background-color: var(--el-color-primary-light-9) !important;
+      color: var(--el-color-primary) !important;
+      font-weight: 600;
+      
+      // 左侧指示器
+      &::before {
+        content: '';
+        position: absolute;
+        left: -12px;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background-color: var(--el-color-primary);
+        border-radius: 0 4px 4px 0;
+      }
+    }
+    
+    [data-theme='theme-black'] & .el-menu-item.is-active {
+      background-color: var(--el-color-primary) !important;
+      color: #fff !important;
+      &::before { display: none; } // 深色模式采用全填充，不需要左侧竖线
+    }
   }
 
   // 展开sidebar状态设置svg-icon边距

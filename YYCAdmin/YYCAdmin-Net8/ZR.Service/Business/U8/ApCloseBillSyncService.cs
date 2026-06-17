@@ -2,8 +2,8 @@ using Infrastructure.Attribute;
 using Newtonsoft.Json.Linq;
 using SqlSugar;
 using SqlSugar.IOC;
-using ZR.Model.Business.Model;
-using ZR.Model.Business.Model.Dto;
+using ZR.Model.Business;
+using ZR.Model.Business.Dto;
 using ZR.Repository;
 using ZR.Service.Business.IService;
 
@@ -23,7 +23,7 @@ namespace ZR.Service.Business.U8
 
         private readonly IApCloseBillService _apCloseBillService;
         private readonly ISqlSugarClient _db;
-        private readonly BaseRepository<EF_MidYSBillData> _midBillRepository;
+        private readonly BaseRepository<EfMidysbilldata> _midBillRepository;
 
         /// <summary>
         /// 初始化 U8 收付款单同步服务。
@@ -34,7 +34,7 @@ namespace ZR.Service.Business.U8
         {
             _apCloseBillService = apCloseBillService;
             _db = DbScoped.SugarScope.GetConnectionScope(0);
-            _midBillRepository = new BaseRepository<EF_MidYSBillData>(_db);
+            _midBillRepository = new BaseRepository<EfMidysbilldata>(_db);
         }
 
         /// <summary>
@@ -45,7 +45,9 @@ namespace ZR.Service.Business.U8
         public async Task<string> SyncAsync(string jobParams = null)
         {
             var pendingRows = await _midBillRepository.Queryable()
-                .Where(x => (x.ProcessStatus == 0 || x.ProcessStatus == 2) && x.SettleStatus == YsSettledStatusValue)
+                .Where(x => (x.ProcessStatus == 0 || x.ProcessStatus == 2) 
+                            && x.CDwType != "其他"
+                            && x.SettleStatus == YsSettledStatusValue)
                 .ToListAsync();
 
             var rowsToSync = pendingRows.ToList();
@@ -97,7 +99,7 @@ namespace ZR.Service.Business.U8
         /// <summary>
         /// 组装 ApCloseBillDto 对象。
         /// </summary>
-        private static ApCloseBillDto BuildApCloseBillDto(EF_MidYSBillData row)
+        private static ApCloseBillDto BuildApCloseBillDto(EfMidysbilldata row)
         {
             return new ApCloseBillDto
             {
@@ -114,22 +116,21 @@ namespace ZR.Service.Business.U8
                 cSSName = row.CSSName,
                 cDepCode = row.CDepCode,
                 cPersonCode = string.Empty,
-                // cDigest = BuildDigest(row),
-                cDigest = "",
+                cDigest = row.cdigest,
                 CMAKER = row.CMaker,
                 cNoteCode = row.CNoteCode,
-                receiptDirection = ConvertReceiptDirection(row.CVouchType),
                 tradetypeName = row.TradetypeName,
                 iAmount = row.IAmount ?? 0,
                 noteTypeCode = row.NoteTypeCode,
-                discountInterest = row.DiscountInterest ?? 0
+                discountInterest = row.DiscountInterest ?? 0,
+                receiptDirection = row.ReceiptDirection
             };
         }
 
         /// <summary>
         /// 生成默认摘要说明。
         /// </summary>
-        private static string BuildDigest(EF_MidYSBillData row)
+        private static string BuildDigest(EfMidysbilldata row)
         {
             var parts = new[] { row.QuickTypeName, row.CVouchCode }
                 .Where(x => !string.IsNullOrWhiteSpace(x));
@@ -152,7 +153,7 @@ namespace ZR.Service.Business.U8
         /// <summary>
         /// 更新中间表中的 U8 同步状态字段。
         /// </summary>
-        private async Task UpdateU8SyncStateAsync(EF_MidYSBillData row)
+        private async Task UpdateU8SyncStateAsync(EfMidysbilldata row)
         {
             await _db.Updateable(row)
                 .UpdateColumns(x => new

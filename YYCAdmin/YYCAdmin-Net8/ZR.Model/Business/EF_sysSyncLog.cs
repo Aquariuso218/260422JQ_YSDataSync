@@ -1,4 +1,4 @@
-namespace ZR.Model.Business.Model
+namespace ZR.Model.Business
 {
     [SugarTable("EF_sysSyncLog")]
     [Tenant("0")]

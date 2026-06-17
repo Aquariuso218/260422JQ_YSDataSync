@@ -1,4 +1,7 @@
-﻿using Infrastructure;
+using Infrastructure;
+using System.Collections.Concurrent;
+using System.IO;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,6 +13,10 @@ namespace ZR.Service.Business.Ys
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly YsConfigOptions _config;
+
+        private static readonly ConcurrentDictionary<string, DateTime> _lastRequestTimes = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _rateLimitLock = new();
+        private const int MinRequestIntervalMs = 1500; // 同一API的最短调用间隔为 1.5 秒
 
         /// <summary>
         /// 初始化 YS 接口客户端。
@@ -95,7 +102,7 @@ namespace ZR.Service.Business.Ys
         }
 
         /// <summary>
-        /// 发送原始 HTTP 请求，并校验 HTTP 状态码。
+        /// 发送原始 HTTP 请求，并校验 HTTP 状态码。包含漏桶限速与自动退避重试逻辑。
         /// </summary>
         private async Task<string> SendAsync(HttpRequestMessage request)
         {
@@ -104,14 +111,124 @@ namespace ZR.Service.Business.Ys
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            using var response = await client.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new InvalidOperationException($"YS request failed ({(int)response.StatusCode}): {responseContent}");
-            }
+            int retryCount = 0;
+            const int maxRetries = 3;
+            const int retryDelayMs = 5000; // 遇到限频时重试等待 5 秒
 
-            return responseContent;
+            while (true)
+            {
+                // 1. 防频限速控制 (相对路径漏桶限流)
+                var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+                TimeSpan delay = TimeSpan.Zero;
+                lock (_rateLimitLock)
+                {
+                    var now = DateTime.UtcNow;
+                    if (_lastRequestTimes.TryGetValue(path, out var lastTime))
+                    {
+                        var elapsed = now - lastTime;
+                        if (elapsed.TotalMilliseconds < MinRequestIntervalMs)
+                        {
+                            delay = TimeSpan.FromMilliseconds(MinRequestIntervalMs - elapsed.TotalMilliseconds);
+                            _lastRequestTimes[path] = now + delay;
+                        }
+                        else
+                        {
+                            _lastRequestTimes[path] = now;
+                        }
+                    }
+                    else
+                    {
+                        _lastRequestTimes[path] = now;
+                    }
+                }
+
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay);
+                }
+
+                // 2. 深度复制 HTTP 请求以防重复发送报错
+                using var cloneRequest = await CloneHttpRequestMessageAsync(request);
+
+                try
+                {
+                    using var response = await client.SendAsync(cloneRequest);
+                    var responseContent = await response.Content.ReadAsStringAsync();
+
+                    bool isRateLimit = false;
+
+                    // 判断是否触发限流限制 (HTTP 429 或 响应 JSON 中的特定限流信息)
+                    if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                    {
+                        isRateLimit = true;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            if (!string.IsNullOrWhiteSpace(responseContent) && responseContent.Trim().StartsWith("{"))
+                            {
+                                var json = Newtonsoft.Json.Linq.JObject.Parse(responseContent);
+                                var code = json["code"]?.ToString();
+                                var msg = json["message"]?.ToString() ?? json["msg"]?.ToString();
+                                if (code == "apigw.limit.rate.error" || 
+                                    (msg != null && (msg.Contains("频繁") || msg.Contains("限流") || msg.Contains("限频") || msg.Contains("Too Many Requests"))))
+                                {
+                                    isRateLimit = true;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // 忽略 JSON 解析报错
+                        }
+                    }
+
+                    if (isRateLimit && retryCount < maxRetries)
+                    {
+                        retryCount++;
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new InvalidOperationException($"YS request failed ({(int)response.StatusCode}): {responseContent}");
+                    }
+
+                    return responseContent;
+                }
+                catch (Exception) when (retryCount < maxRetries)
+                {
+                    // 遇到网络异常或其他临时请求失败亦可尝试重试
+                    retryCount++;
+                    await Task.Delay(retryDelayMs);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 深度复制 HTTP 请求消息，规避已发送请求被重复发送的错误。
+        /// </summary>
+        private static async Task<HttpRequestMessage> CloneHttpRequestMessageAsync(HttpRequestMessage req)
+        {
+            var clone = new HttpRequestMessage(req.Method, req.RequestUri);
+            if (req.Content != null)
+            {
+                var ms = new MemoryStream();
+                await req.Content.CopyToAsync(ms);
+                ms.Position = 0;
+                clone.Content = new StreamContent(ms);
+                foreach (var header in req.Content.Headers)
+                {
+                    clone.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+            }
+            foreach (var header in req.Headers)
+            {
+                clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            return clone;
         }
 
         /// <summary>

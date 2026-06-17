@@ -2,7 +2,7 @@ using Infrastructure.Attribute;
 using Microsoft.Extensions.Configuration;
 using SqlSugar.IOC;
 using System.Data;
-using ZR.Model.Business.Model.Dto;
+using ZR.Model.Business.Dto;
 using ZR.Service.Business.IService;
 using ZR.Service.Business.U8.Dtos;
 using static Org.BouncyCastle.Crypto.Engines.SM2Engine;
@@ -180,7 +180,7 @@ public class ApCloseBillService : IApCloseBillService
                     }
 
                     //贷方科目（根据结算方式获取应付银行结算科目）
-                    string mcCode = _db.Ado.GetString($"select cOrgNo from Bank (nolock) where cBAccount=@cBAccount",
+                    string mcCode = _db.Ado.GetString($"select cOrgNo from {u8DbName}..Bank (nolock) where cBAccount=@cBAccount",
                         new SugarParameter[] { new SugarParameter("@cBAccount", cNatBankAccount) });
 
                     //贷方现金科目
@@ -297,8 +297,34 @@ public class ApCloseBillService : IApCloseBillService
                         }
                     }
 
-                    string isignseq = "5";
-                    string csign = "转账";
+
+
+                    string isignseq = "2";
+                    string csign = "银行收款";
+                    if (apCloseBill.orgCode == "1004")
+                    {
+                        csign = "03";
+                    }
+                    else if (apCloseBill.orgCode == "1003")
+                    {
+                        isignseq = "3";
+                    }
+
+                    //借方科目（根据银行账户获取银行科目）
+                    string mdCode = _db.Ado.GetString($"select cOrgNo from {u8DbName}..Bank (nolock) where cBAccount=@cBAccount",
+                        new SugarParameter[] { new SugarParameter("@cBAccount", cNatBankAccount) });
+
+                    if (apCloseBill.quickTypeName == "质押款")
+                    {
+                        isignseq = "5";
+                        csign = "转账";
+
+                        mdCode = "1012";
+                        if (apCloseBill.orgCode == "1001")
+                        {
+                            mdCode = "101201";
+                        }
+                    }
 
                     //判断凭证类别是否存在
                     string i_id =
@@ -319,19 +345,6 @@ public class ApCloseBillService : IApCloseBillService
 
                     message = "凭证号:" + csign + "-" + ino_id.PadLeft(4, '0'); //ino_id需要为四位编码，需要补零
                     code = csign + "-" + ino_id.PadLeft(4, '0');
-
-                    //借方科目（根据银行账户获取银行科目）
-                    string mdCode = _db.Ado.GetString($"select cOrgNo from Bank (nolock) where cBAccount=@cBAccount",
-                        new SugarParameter[] { new SugarParameter("@cBAccount", cNatBankAccount) });
-
-                    if (apCloseBill.quickTypeName == "质押款")
-                    {
-                        mdCode = "1012";
-                        if (apCloseBill.orgCode == "1001")
-                        {
-                            mdCode = "101201";
-                        }
-                    }
 
                     if (string.IsNullOrWhiteSpace(mdCode))
                     {
@@ -519,7 +532,7 @@ public class ApCloseBillService : IApCloseBillService
 
 
                     //借方科目（根据结算方式获取应付银行结算科目）
-                    string mdCode = _db.Ado.GetString($"select cOrgNo from Bank (nolock) where cBAccount=@cBAccount",
+                    string mdCode = _db.Ado.GetString($"select cOrgNo from {u8DbName}..Bank (nolock) where cBAccount=@cBAccount",
                         new SugarParameter[] { new SugarParameter("@cBAccount", cNatBankAccount) });
 
                     if (string.IsNullOrWhiteSpace(mdCode))
@@ -625,15 +638,19 @@ public class ApCloseBillService : IApCloseBillService
                     _db.Ado.ExecuteCommand(
                         $"insert into GL_CashTable([iPeriod],[iSignSeq],[iNo_id],[inid],[cCashItem],[md],[mc],[ccode],[md_f],[mc_f],[nd_s],[nc_s],[cdept_id],[cperson_id],[ccus_id],[csup_id],[citem_class],[citem_id],[cDefine12],[cDefine13],[cDefine14],[dbill_date],[csign],[iyear],[iYPeriod],[RowGuid],[cexch_name]) values('{DateTime.Parse(apCloseBill.billDate).Month}','{isignseq}','{ino_id}','{inid}','{mdxjcode}','{bankiAmount}',0,'{mdCode}',0,0,0,0,nullif(N'{cDepCode}',''),nullif(N'{cPersonCode}',''),Null,Null,Null,Null,'{apCloseBill.cVouchCode}','{apCloseBill.cNoteCode}','贴现办理','{apCloseBill.billDate}','{csign}','{DateTime.Parse(apCloseBill.billDate).Year}',CONVERT(varchar(6),cast('{apCloseBill.billDate}' as datetime),112),'{RowGuid}',Null)");
 
+                    if (apCloseBill.discountInterest > 0)
+                    {
+                        inid = inid + 1;
 
-                    inid = inid + 1;
-
-                    RowGuid = Guid.NewGuid().ToString().Replace("-", "") + "00000000";
+                        RowGuid = Guid.NewGuid().ToString().Replace("-", "") + "00000000";
 
 
-                    //凭证借方利息科目
-                    _db.Ado.ExecuteCommand(
-                        $"insert into {u8DbName}..GL_accvouch(iperiod,csign,isignseq,ino_id,inid,dbill_date,idoc,cbill,ibook,cdigest,ccode,md,mc,md_f,mc_f,nfrat,nd_s,nc_s,csettle,dt_date,cdept_id,cperson_id,ccus_id,csup_id,citem_id,citem_class,cname,ccode_equal,bdelete,coutaccset,ioutyear,coutsysname,doutbilldate,ioutperiod,coutsign,coutno_id,doutdate,coutbillsign,coutid,bvouchedit,bvouchAddordele,bvouchmoneyhold,bvalueedit,bcodeedit,ccodecontrol,bPCSedit,bDeptedit,bItemedit,bCusSupInput,cDefine12,cDefine13,cDefine14,bFlagOut,RowGuid,iyear,iYPeriod,tvouchtime,ccodeexch_equal) values('{DateTime.Parse(apCloseBill.billDate).Month}','{csign}','{isignseq}','{ino_id}','{inid}','{apCloseBill.billDate}','-1','{apCloseBill.CMAKER}',0,'{cdigest}','{LlixicCode}','{apCloseBill.discountInterest}',0,0,0,0,0,0,Null,Null,nullif(N'{cDepCode}',''),nullif(N'{cPersonCode}',''),Null,Null,Null,Null,Null,'{mcCode}',0,Null,Null,Null,'{apCloseBill.billDate}',Null,'','{coutno_id}',Null,Null,Null,1,0,0,1,1,Null,1,1,1,0,'{apCloseBill.cVouchCode}','{apCloseBill.cNoteCode}','贴现办理',0,'{RowGuid}','{DateTime.Parse(apCloseBill.billDate).Year}',CONVERT(varchar(6),cast('{apCloseBill.billDate}' as datetime),112),getdate(),'{mcCode}')");
+                        //凭证借方利息科目
+                        _db.Ado.ExecuteCommand(
+                            $"insert into {u8DbName}..GL_accvouch(iperiod,csign,isignseq,ino_id,inid,dbill_date,idoc,cbill,ibook,cdigest,ccode,md,mc,md_f,mc_f,nfrat,nd_s,nc_s,csettle,dt_date,cdept_id,cperson_id,ccus_id,csup_id,citem_id,citem_class,cname,ccode_equal,bdelete,coutaccset,ioutyear,coutsysname,doutbilldate,ioutperiod,coutsign,coutno_id,doutdate,coutbillsign,coutid,bvouchedit,bvouchAddordele,bvouchmoneyhold,bvalueedit,bcodeedit,ccodecontrol,bPCSedit,bDeptedit,bItemedit,bCusSupInput,cDefine12,cDefine13,cDefine14,bFlagOut,RowGuid,iyear,iYPeriod,tvouchtime,ccodeexch_equal) values('{DateTime.Parse(apCloseBill.billDate).Month}','{csign}','{isignseq}','{ino_id}','{inid}','{apCloseBill.billDate}','-1','{apCloseBill.CMAKER}',0,'{cdigest}','{LlixicCode}','{apCloseBill.discountInterest}',0,0,0,0,0,0,Null,Null,nullif(N'{cDepCode}',''),nullif(N'{cPersonCode}',''),Null,Null,Null,Null,Null,'{mcCode}',0,Null,Null,Null,'{apCloseBill.billDate}',Null,'','{coutno_id}',Null,Null,Null,1,0,0,1,1,Null,1,1,1,0,'{apCloseBill.cVouchCode}','{apCloseBill.cNoteCode}','贴现办理',0,'{RowGuid}','{DateTime.Parse(apCloseBill.billDate).Year}',CONVERT(varchar(6),cast('{apCloseBill.billDate}' as datetime),112),getdate(),'{mcCode}')");
+                    }
+
+
 
 
                     inid = inid + 1;
@@ -805,7 +822,7 @@ public class ApCloseBillService : IApCloseBillService
                             //来源票据号
                             if (!string.IsNullOrWhiteSpace(apCloseBill.cNoteCode))
                             {
-                                //表头结算科目（应付票据科目）
+                                //表头结算科目（应收票据科目）
                                 if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
                                 {
                                     KmcCode = "1121";
@@ -994,28 +1011,59 @@ public class ApCloseBillService : IApCloseBillService
                             //来源票据号
                             if (!string.IsNullOrWhiteSpace(apCloseBill.cNoteCode))
                             {
-                                //表头结算科目（应付票据科目）
-                                if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                //票证方向（1-收到票据（对应应收票据科目），2-开出票据（对应应付票据科目））
+                                if (apCloseBill.receiptDirection == "1")
                                 {
-                                    KmcCode = "2201";
-                                }
-                                else
-                                {
-                                    if (apCloseBill.cSSName == "银行承兑汇票")
+                                    //表头结算科目（应收票据科目）
+                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
                                     {
-                                        KmcCode = "220101";
-                                    }
-                                    else if (apCloseBill.cSSName == "商业承兑汇票")
-                                    {
-                                        KmcCode = "220103";
-                                    }
-                                    else if (apCloseBill.cSSName == "债权凭证")
-                                    {
-                                        KmcCode = "220104";
+                                        KmcCode = "1121";
                                     }
                                     else
                                     {
-                                        KmcCode = "220102";
+                                        if (apCloseBill.cSSName == "银行承兑汇票")
+                                        {
+                                            KmcCode = "112101";
+                                        }
+                                        else if (apCloseBill.cSSName == "商业承兑汇票")
+                                        {
+                                            KmcCode = "112103";
+                                        }
+                                        else if (apCloseBill.cSSName == "债权凭证")
+                                        {
+                                            KmcCode = "112102";
+                                        }
+                                        else
+                                        {
+                                            KmcCode = "112104";
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    //表头结算科目（应付票据科目）
+                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                    {
+                                        KmcCode = "2201";
+                                    }
+                                    else
+                                    {
+                                        if (apCloseBill.cSSName == "银行承兑汇票")
+                                        {
+                                            KmcCode = "220101";
+                                        }
+                                        else if (apCloseBill.cSSName == "商业承兑汇票")
+                                        {
+                                            KmcCode = "220103";
+                                        }
+                                        else if (apCloseBill.cSSName == "债权凭证")
+                                        {
+                                            KmcCode = "220104";
+                                        }
+                                        else
+                                        {
+                                            KmcCode = "220102";
+                                        }
                                     }
                                 }
                             }
@@ -1393,28 +1441,60 @@ public class ApCloseBillService : IApCloseBillService
                             //单据来源票据
                             if (!string.IsNullOrWhiteSpace(apCloseBill.cNoteCode))
                             {
-                                //表头结算科目（应付票据科目）
-                                if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                //票证方向（1-收到票据（对应应收票据科目），2-开出票据（对应应付票据科目））
+                                if (apCloseBill.receiptDirection == "1")
                                 {
-                                    KmcCode = "2201";
-                                }
-                                else
-                                {
-                                    if (apCloseBill.cSSName == "银行承兑汇票")
+                                    //表头结算科目（应收票据科目）
+                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
                                     {
-                                        KmcCode = "220101";
-                                    }
-                                    else if (apCloseBill.cSSName == "商业承兑汇票")
-                                    {
-                                        KmcCode = "220103";
-                                    }
-                                    else if (apCloseBill.cSSName == "债权凭证")
-                                    {
-                                        KmcCode = "220104";
+                                        KmcCode = "1121";
                                     }
                                     else
                                     {
-                                        KmcCode = "220102";
+                                        if (apCloseBill.cSSName == "银行承兑汇票")
+                                        {
+                                            KmcCode = "112101";
+                                        }
+                                        else if (apCloseBill.cSSName == "商业承兑汇票")
+                                        {
+                                            KmcCode = "112103";
+                                        }
+                                        else if (apCloseBill.cSSName == "债权凭证")
+                                        {
+                                            KmcCode = "112102";
+                                        }
+                                        else
+                                        {
+                                            KmcCode = "112104";
+                                        }
+                                    }
+                                }
+                                else
+                                {
+
+                                    //表头结算科目（应付票据科目）
+                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                    {
+                                        KmcCode = "2201";
+                                    }
+                                    else
+                                    {
+                                        if (apCloseBill.cSSName == "银行承兑汇票")
+                                        {
+                                            KmcCode = "220101";
+                                        }
+                                        else if (apCloseBill.cSSName == "商业承兑汇票")
+                                        {
+                                            KmcCode = "220103";
+                                        }
+                                        else if (apCloseBill.cSSName == "债权凭证")
+                                        {
+                                            KmcCode = "220104";
+                                        }
+                                        else
+                                        {
+                                            KmcCode = "220102";
+                                        }
                                     }
                                 }
                             }

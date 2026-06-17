@@ -31,6 +31,13 @@ namespace ZR.Service.Business.Ys.Dtos
         [JsonProperty("creator")]
         public string Creator { get; set; }
 
+
+        /// <summary>
+        /// 资金组织ID(备用)
+        /// </summary>
+        [JsonProperty("accentity")]
+        public string accentity { get; set; }
+
         /// <summary>
         /// 结算单表体。
         /// </summary>
@@ -144,5 +151,60 @@ namespace ZR.Service.Business.Ys.Dtos
         /// </summary>
         [JsonProperty("tradetype_name")]
         public string TradetypeName { get; set; }
+
+        /// <summary>
+        /// 联行号。
+        /// </summary>
+        [JsonProperty("settleBench_bCharacterSys__GYSYHHH")]
+        public string crBankNo { get; set; }
+
+        /// <summary>
+        /// 对方银行账号。
+        /// </summary>
+        [JsonProperty("counterpartybankacc")]
+        public string caccountNum { get; set; }
+
+        /// <summary>
+        /// 对方银行账户名称
+        /// </summary>
+        [JsonProperty("counterpartyaccname")]
+        public string caccountName { get; set; }
+
+        /// <summary>
+        /// 开户行。
+        /// </summary>
+        [JsonProperty("counterpartybankname")]
+        public string cbranch { get; set; }
+
+        /// <summary>
+        /// 摘要。
+        /// </summary>
+        [JsonProperty("description")]
+        public string cdigest { get; set; }
+
+
+        /// <summary>
+        /// 对方名称
+        /// </summary>
+        [JsonProperty("counterpartyname")]
+        public string counterpartyname { get; set; }
+
+
+        /// <summary>
+        /// 票据方向。
+        /// 接口不存在时为 null，有值时一般为 "1"、"2"、""、null。
+        /// </summary>
+        [JsonProperty("receiptDirection")]
+        public string ReceiptDirection { get; set; }
+
+
+        /// <summary>
+        /// 来源单据号
+        /// </summary>
+        [JsonProperty("bizbillno")]
+        public string bizbillno { get; set; }
+             
+
+
     }
 }

@@ -1,74 +1,96 @@
 <template>
-  <starBackground></starBackground>
   <div class="login-wrap">
-    <div class="login">
-      <h3 class="title">{{ defaultSettings.title }}</h3>
+    <!-- Left side: Aurora Background (参照 Inspira UI Aurora Background) -->
+    <div class="login-left">
+      <LoginBackground>
+        <!-- brand-info 作为 slot 内容，确保在光晕层之上 -->
 
-      <LangSelect title="多语言设置" class="langSet" />
-
-      <div style="padding: 0 25px 5px 25px">
-        <el-tabs v-model="loginType" @tab-click="handleLoginType">
-          <el-tab-pane :label="$t('login.loginway1')" :name="1"></el-tab-pane>
-          <el-tab-pane :label="$t('login.loginway2')" :name="2" v-if="defaultSettings.showPhoneLogin"></el-tab-pane>
-          <el-tab-pane :label="$t('login.loginway3')" :name="3" v-if="defaultSettings.showQrLogin"></el-tab-pane>
-        </el-tabs>
-      </div>
-
-      <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form" v-if="loginType == 1">
-        <el-form-item prop="username">
-          <el-input v-model="loginForm.username" type="text" auto-complete="off" :placeholder="$t('login.account')">
-            <template #prefix>
-              <svg-icon name="user" class="input-icon" />
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
-            v-model="loginForm.password"
-            show-password
-            type="password"
-            auto-complete="off"
-            :placeholder="$t('login.password')"
-            @keyup.enter="handleLogin">
-            <template #prefix>
-              <svg-icon name="password" class="input-icon" />
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item prop="code" v-if="captchaOnOff != 'off'">
-          <el-input v-model="loginForm.code" auto-complete="off" :placeholder="$t('login.captcha')" style="width: 63%" @keyup.enter="handleLogin">
-            <template #prefix>
-              <svg-icon name="validCode" class="input-icon" />
-            </template>
-          </el-input>
-          <div class="login-code">
-            <el-image :src="codeUrl" @click="getCode" class="login-code-img" />
-          </div>
-        </el-form-item>
-
-        <el-form-item style="width: 100%" :style="{ 'margin-top': captchaOnOff == 'off' ? '40px' : '' }">
-          <el-button :loading="loading" size="default" round type="primary" style="width: 100%" @click.prevent="handleLogin">
-            <span v-if="!loading">{{ $t('login.btnLogin') }}</span>
-            <span v-else>登 录 中...</span>
-          </el-button>
-        </el-form-item>
-
-        <div style="display: flex; justify-content: space-between; align-items: center">
-          <el-checkbox v-model="loginForm.rememberMe">{{ $t('login.rememberMe') }}</el-checkbox>
-          <span style="font-size: 12px">
-            <router-link class="link-type" :to="'/register'">{{ $t('login.register') }}</router-link>
-            <span @click="handleForgetPwd()" class="forget-pwd">{{ $t('login.forgotPwd') }}</span>
-          </span>
+        <div class="brand-info">
+          <div class="brand-badge">数据集成平台</div>
+          <h1 class="brand-title">赋能数据，<br />加速业务</h1>
+          <p class="brand-desc">YYCAdmin 数据集成中心，致力于提供最流畅、<br />最智能的后台管理体验。</p>
         </div>
-      </el-form>
-
-      <qrLogin ref="qrLoginRef" v-if="loginType == 3"></qrLogin>
-      <phoneLogin v-if="loginType == 2"></phoneLogin>
-      <oauthLogin v-if="defaultSettings.showOtherLogin"></oauthLogin>
+      </LoginBackground>
     </div>
 
-    <div class="el-login-footer">
-      <div v-html="defaultSettings.copyright"></div>
+    <!-- Right side: Minimalist Form -->
+    <div class="login-right">
+      <LangSelect title="多语言设置" class="langSet" />
+
+      <div class="login-box">
+        <h2 class="welcome-text">欢迎回来</h2>
+        <p class="sub-text">请输入您的详细信息以登录</p>
+
+        <div style="margin-bottom: 24px">
+          <el-tabs v-model="loginType" @tab-click="handleLoginType" class="premium-tabs">
+            <el-tab-pane :label="$t('login.loginway1')" :name="1"></el-tab-pane>
+            <!-- <el-tab-pane :label="$t('login.loginway2')" :name="2" v-if="defaultSettings.showPhoneLogin"></el-tab-pane>
+            <el-tab-pane :label="$t('login.loginway3')" :name="3" v-if="defaultSettings.showQrLogin"></el-tab-pane> -->
+          </el-tabs>
+        </div>
+
+        <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form" v-if="loginType == 1">
+          <el-form-item prop="username">
+            <el-input v-model="loginForm.username" type="text" auto-complete="off" :placeholder="$t('login.account')">
+              <template #prefix>
+                <svg-icon name="user" class="input-icon" />
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item prop="password">
+            <el-input v-model="loginForm.password" show-password type="password" auto-complete="off"
+              :placeholder="$t('login.password')" @keyup.enter="handleLogin">
+              <template #prefix>
+                <svg-icon name="password" class="input-icon" />
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item prop="code" v-if="captchaOnOff != 'off'">
+            <el-input v-model="loginForm.code" auto-complete="off" :placeholder="$t('login.captcha')" style="width: 60%"
+              @keyup.enter="handleLogin">
+              <template #prefix>
+                <svg-icon name="validCode" class="input-icon" />
+              </template>
+            </el-input>
+            <div class="login-code">
+              <el-image :src="codeUrl" @click="getCode" class="login-code-img" />
+            </div>
+          </el-form-item>
+
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 4px;"
+            class="form-options">
+            <el-checkbox v-model="loginForm.rememberMe">{{ $t('login.rememberMe') }}</el-checkbox>
+            <span style="font-size: 13px">
+
+              <!-- <router-link class="link-type" style="color: var(--el-color-primary);" :to="'/register'">{{
+                $t('login.register')
+                }}</router-link>
+              <span class="divider" style="margin: 0 8px; color: #d1d5db;">|</span> -->
+
+              <span @click="handleForgetPwd()" class="forget-pwd"
+                style="color: var(--el-color-primary); cursor: pointer;">{{
+                  $t('login.forgotPwd') }}</span>
+            </span>
+          </div>
+
+          <el-button :loading="loading" type="primary" class="login-btn" style="width: 100%"
+            @click.prevent="handleLogin">
+            <span v-if="!loading">登 录</span>
+            <span v-else>登 录 中...</span>
+          </el-button>
+        </el-form>
+
+        <qrLogin ref="qrLoginRef" v-if="loginType == 3"></qrLogin>
+        <phoneLogin v-if="loginType == 2"></phoneLogin>
+        <oauthLogin v-if="defaultSettings.showOtherLogin"></oauthLogin>
+      </div>
+
+      <div class="el-login-footer">
+        <div v-html="defaultSettings.copyright"></div>
+      </div>
     </div>
   </div>
 </template>
@@ -78,8 +100,8 @@ import { getCodeImg } from '@/api/system/login'
 import Cookies from 'js-cookie'
 import { encrypt, decrypt } from '@/utils/jsencrypt'
 import defaultSettings from '@/settings'
-import starBackground from '@/views/components/starBackground.vue'
 import LangSelect from '@/components/LangSelect/index.vue'
+import LoginBackground from './components/LoginBackground.vue'
 import useUserStore from '@/store/modules/user'
 import oauthLogin from './components/Login/oauthLogin.vue'
 import phoneLogin from './components/Login/phoneLogin.vue'
@@ -223,12 +245,18 @@ function handleShowQrLogin() {
     proxy.$refs.qrLoginRef.generateCode()
   })
 }
+// =============================================
+// 背景动效已迁移到 LoginBackground.vue 组件
+// 参照 Inspira UI Aurora Background 实现
+// =============================================
+
 getCode()
 getCookie()
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/login.scss';
+
 .forget-pwd {
   color: #ccc;
   margin-left: 10px;
@@ -236,6 +264,7 @@ getCookie()
   border-left: 1px solid;
   padding-left: 10px;
 }
+
 .qrCode {
   width: 160px;
   height: 160px;

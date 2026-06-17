@@ -135,6 +135,9 @@ function handleOutsideClick() {
   position: relative;
   height: 100%;
   overflow-x: hidden;
+  background-color: var(--el-bg-color-page, #f5f7fa);
+  padding: 16px;
+  box-sizing: border-box;
 }
 .sidebar-mobile {
   .el-drawer__body {

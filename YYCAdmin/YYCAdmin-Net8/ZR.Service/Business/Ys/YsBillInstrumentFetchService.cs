@@ -2,7 +2,7 @@ using Infrastructure;
 using Infrastructure.Attribute;
 using SqlSugar;
 using SqlSugar.IOC;
-using ZR.Model.Business.Model;
+using ZR.Model.Business;
 using ZR.Repository;
 using ZR.Service.Business.IService;
 using ZR.Service.Business.Ys.Dtos;
@@ -36,7 +36,7 @@ namespace ZR.Service.Business.Ys
 
         private readonly YsApiClient _apiClient;
         private readonly ISqlSugarClient _db;
-        private readonly BaseRepository<EF_MidYSBillData> _midBillRepository;
+        private readonly BaseRepository<EfMidysbilldata> _midBillRepository;
         private readonly BaseRepository<EF_sysSyncLog> _syncLogRepository;
         private readonly Dictionary<string, string> _customerCodeCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly YsConfigOptions _config;
@@ -49,7 +49,7 @@ namespace ZR.Service.Business.Ys
         {
             _apiClient = new YsApiClient(httpClientFactory);
             _db = DbScoped.SugarScope.GetConnectionScope(0);
-            _midBillRepository = new BaseRepository<EF_MidYSBillData>(_db);
+            _midBillRepository = new BaseRepository<EfMidysbilldata>(_db);
             _syncLogRepository = new BaseRepository<EF_sysSyncLog>(_db);
             _config = AppSettings.Get<YsConfigOptions>(YsBillSyncConstants.ConfigSectionName) ?? new YsConfigOptions();
         }
@@ -67,10 +67,11 @@ namespace ZR.Service.Business.Ys
                 return "YS票据抓取: 当前类型无需执行";
             }
 
+            var isCompensation = IsCompensation(jobParams);
             var messages = new List<string>();
             foreach (var syncType in syncTypes)
             {
-                messages.Add(await SyncSingleTypeAsync(syncType));
+                messages.Add(await SyncSingleTypeAsync(syncType, isCompensation));
             }
 
             return string.Join(" | ", messages.Where(x => !string.IsNullOrWhiteSpace(x)));
@@ -79,12 +80,23 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 执行单个票据业务类型的完整同步流程。
         /// </summary>
-        private async Task<string> SyncSingleTypeAsync(string syncType)
+        private async Task<string> SyncSingleTypeAsync(string syncType, bool isCompensation)
         {
             var syncEndTime = DateTime.Now;
-            var interfaceName = GetInterfaceName(syncType);
-            var syncStartTime = await GetLastSuccessEndTimeAsync(interfaceName)
-                ?? syncEndTime.AddDays(-YsBillSyncConstants.FirstSyncFallbackDays);
+            var baseInterfaceName = GetInterfaceName(syncType);
+            var interfaceName = isCompensation ? $"{baseInterfaceName}_Compensation" : baseInterfaceName;
+            
+            DateTime syncStartTime;
+            if (isCompensation)
+            {
+                // 补单业务：固定同步起点为上月 1 号的 0 点
+                syncStartTime = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-1);
+            }
+            else
+            {
+                syncStartTime = await GetLastSuccessEndTimeAsync(interfaceName)
+                    ?? syncEndTime.AddDays(-YsBillSyncConstants.FirstSyncFallbackDays);
+            }
 
             try
             {
@@ -109,7 +121,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 根据同步类型调用对应接口并构造中间表数据。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> BuildRowsAsync(
+        private async Task<List<EfMidysbilldata>> BuildRowsAsync(
             string syncType,
             string accessToken,
             DateTime syncStartTime,
@@ -127,7 +139,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 拉取贴现办理数据并映射到中间表。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> FetchDiscountRowsAsync(
+        private async Task<List<EfMidysbilldata>> FetchDiscountRowsAsync(
             string accessToken,
             DateTime syncStartTime,
             DateTime syncEndTime)
@@ -147,7 +159,7 @@ namespace ZR.Service.Business.Ys
 
             EnsureSuccess(response, DiscountInterfaceName);
             var records = response.Data?.DiscountDatas ?? [];
-            var rows = new List<EF_MidYSBillData>();
+            var rows = new List<EfMidysbilldata>();
 
             foreach (var record in records.Where(x => string.Equals(NormalizeString(x.InvoiceRoles), CustomerRoleValue, StringComparison.OrdinalIgnoreCase)))
             {
@@ -164,7 +176,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 拉取到期兑付数据并映射到中间表。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> FetchExpireCashRowsAsync(
+        private async Task<List<EfMidysbilldata>> FetchExpireCashRowsAsync(
             string accessToken,
             DateTime syncStartTime,
             DateTime syncEndTime)
@@ -195,7 +207,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 拉取银行托收数据并映射到中间表。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> FetchConsignBankRowsAsync(
+        private async Task<List<EfMidysbilldata>> FetchConsignBankRowsAsync(
             string accessToken,
             DateTime syncStartTime,
             DateTime syncEndTime)
@@ -226,21 +238,21 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 将贴现办理记录映射为中间表实体。
         /// </summary>
-        private async Task<EF_MidYSBillData> MapDiscountRowAsync(YsDiscountRecordDto record, string accessToken)
+        private async Task<EfMidysbilldata> MapDiscountRowAsync(YsDiscountRecordDto record, string accessToken)
         {
             if (string.IsNullOrWhiteSpace(record.BillId))
             {
                 return null;
             }
 
-            return new EF_MidYSBillData
+            return new EfMidysbilldata
             {
                 Id = NormalizeString(record.BillId),
                 MainId = string.Empty,
                 CVouchCode = NormalizeString(record.BillCode),
                 BillDate = record.DiscountDate,
                 CMaker = DefaultMaker,
-                OrgCode = NormalizeString(record.Accentity),
+                OrgCode = ExtractParentOrgCode(NormalizeString(record.Accentity)),
                 CNatBankAccount = NormalizeString(record.DiscountBankAccount),
                 SettleStatus = 3,
                 QuickTypeName = DefaultDiscountQuickTypeName,
@@ -258,21 +270,21 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 将到期兑付记录映射为中间表实体。
         /// </summary>
-        private static EF_MidYSBillData MapExpireCashRow(YsExpireCashRecordDto record)
+        private static EfMidysbilldata MapExpireCashRow(YsExpireCashRecordDto record)
         {
             if (string.IsNullOrWhiteSpace(record.Id))
             {
                 return null;
             }
 
-            return new EF_MidYSBillData
+            return new EfMidysbilldata
             {
                 Id = NormalizeString(record.Id),
                 MainId = string.Empty,
                 CVouchCode = NormalizeString(record.Code),
                 BillDate = record.PaymentDate,
                 CMaker = DefaultMaker,
-                OrgCode = NormalizeString(record.AccentityCode),
+                OrgCode = ExtractParentOrgCode(NormalizeString(record.AccentityCode)),
                 CNatBankAccount = NormalizeString(record.PayBankAccount),
                 SettleStatus = 3,
                 QuickTypeName = NormalizeString(record.QuickType),
@@ -289,21 +301,21 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 将银行托收记录映射为中间表实体。
         /// </summary>
-        private static EF_MidYSBillData MapConsignBankRow(YsConsignBankRecordDto record)
+        private static EfMidysbilldata MapConsignBankRow(YsConsignBankRecordDto record)
         {
             if (string.IsNullOrWhiteSpace(record.Id))
             {
                 return null;
             }
 
-            return new EF_MidYSBillData
+            return new EfMidysbilldata
             {
                 Id = NormalizeString(record.Id),
                 MainId = string.Empty,
                 CVouchCode = NormalizeString(record.Code),
                 BillDate = record.ConsignDate,
                 CMaker = DefaultMaker,
-                OrgCode = NormalizeString(record.AccentityCode),
+                OrgCode = ExtractParentOrgCode(NormalizeString(record.AccentityCode)),
                 CNatBankAccount = NormalizeString(record.ConsignBankAccount),
                 SettleStatus = 3,
                 QuickTypeName = NormalizeString(record.Description),
@@ -320,7 +332,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 过滤掉中间表已存在的记录，按 Id 去重。
         /// </summary>
-        private async Task<List<EF_MidYSBillData>> FilterExistingRowsAsync(List<EF_MidYSBillData> rows)
+        private async Task<List<EfMidysbilldata>> FilterExistingRowsAsync(List<EfMidysbilldata> rows)
         {
             if (rows.Count == 0)
             {
@@ -353,7 +365,7 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 批量插入中间表数据。
         /// </summary>
-        private async Task UpsertMidRowsAsync(List<EF_MidYSBillData> rows)
+        private async Task UpsertMidRowsAsync(List<EfMidysbilldata> rows)
         {
             if (rows.Count == 0)
             {
@@ -371,9 +383,9 @@ namespace ZR.Service.Business.Ys
         /// <summary>
         /// 将新增票据业务中间表记录统一规范化，避免写入空值。
         /// </summary>
-        private static EF_MidYSBillData NormalizeForInsert(EF_MidYSBillData row, DateTime insertTime)
+        private static EfMidysbilldata NormalizeForInsert(EfMidysbilldata row, DateTime insertTime)
         {
-            return new EF_MidYSBillData
+            return new EfMidysbilldata
             {
                 Id = NormalizeString(row.Id),
                 MainId = string.Empty,
@@ -559,6 +571,38 @@ namespace ZR.Service.Business.Ys
         private static string NormalizeString(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
+        }
+
+        /// <summary>
+        /// 从子组织编码中提取前四位主组织编码。
+        /// YS 返回的组织编码为子组织编码，其前四位为主组织编码。
+        /// </summary>
+        private static string ExtractParentOrgCode(string orgCode)
+        {
+            if (string.IsNullOrWhiteSpace(orgCode))
+            {
+                return string.Empty;
+            }
+
+            return orgCode.Length >= 4 ? orgCode[..4] : orgCode;
+        }
+
+        /// <summary>
+        /// 解析任务参数中是否指定了补单业务标识。
+        /// </summary>
+        private static bool IsCompensation(string jobParams)
+        {
+            if (string.IsNullOrWhiteSpace(jobParams))
+            {
+                return false;
+            }
+
+            var parameters = jobParams.Split(['&', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(part => part.Split('=', 2, StringSplitOptions.TrimEntries))
+                .Where(parts => parts.Length == 2)
+                .ToDictionary(parts => parts[0], parts => parts[1], StringComparer.OrdinalIgnoreCase);
+
+            return parameters.TryGetValue("isCompensation", out var value) && bool.TryParse(value, out var result) && result;
         }
     }
 }

@@ -1,8 +1,8 @@
-namespace ZR.Model.Business.Model
+namespace ZR.Model.Business
 {
     [SugarTable("EF_MidYSBillData")]
     [Tenant("0")]
-    public class EF_MidYSBillData
+    public class EfMidysbilldata
     {
         [SugarColumn(ColumnName = "autoId", IsPrimaryKey = true, IsIdentity = true)]
         public int AutoId { get; set; }
@@ -84,5 +84,36 @@ namespace ZR.Model.Business.Model
 
         [SugarColumn(ColumnName = "SYNTime", IsNullable = true)]
         public DateTime? SynTime { get; set; }
+
+        [SugarColumn(ColumnName = "cbank", Length = 200, IsNullable = true)]
+        public string cbank { get; set; }
+
+        [SugarColumn(ColumnName = "cbranch", Length = 200, IsNullable = true)]
+        public string cbranch { get; set; }
+
+        [SugarColumn(ColumnName = "caccountNum", Length = 200, IsNullable = true)]
+        public string caccountNum { get; set; }
+
+        [SugarColumn(ColumnName = "caccountName", Length = 200, IsNullable = true)]
+        public string caccountName { get; set; }
+
+        [SugarColumn(ColumnName = "crBankNo", Length = 200, IsNullable = true)]
+        public string crBankNo { get; set; }
+
+        [SugarColumn(ColumnName = "cdigest", Length = 200, IsNullable = true)]
+        public string cdigest { get; set; }
+
+        /// <summary>
+        /// 票证/票据方向
+        /// </summary>
+        [SugarColumn(ColumnName = "receiptDirection", Length = 10, IsNullable = true)]
+        public string ReceiptDirection { get; set; }
+
+        /// <summary>
+        /// 来源单据号
+        /// </summary>
+        [SugarColumn(ColumnName = "bizbillno", Length = 200, IsNullable = true)]
+        public string bizbillno { get; set; }
+
     }
 }

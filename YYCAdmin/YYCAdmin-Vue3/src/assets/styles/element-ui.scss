@@ -173,3 +173,96 @@
     --el-menu-base-level-padding: 5px;
   }
 }
+
+// ==========================================
+// 现代 SaaS 风格 UI/UX 全局覆写 (Modern UI Overrides)
+// ==========================================
+
+// 1. 卡片 (Card)
+.el-card {
+  border: none !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02) !important;
+  border-radius: var(--el-border-radius-base) !important;
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+  
+  &:hover {
+    box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.08), 0 6px 16px 0 rgba(0, 0, 0, 0.06), 0 9px 28px 8px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .el-card__header {
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    padding: 16px 20px;
+    font-weight: 600;
+  }
+}
+
+// 2. 按钮 (Button)
+.el-button {
+  border-radius: var(--el-border-radius-small) !important;
+  transition: all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1);
+  font-weight: 500;
+
+  &--primary {
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// 3. 表单与输入框 (Form & Inputs)
+.el-input__wrapper, 
+.el-select-v2__wrapper, 
+.el-textarea__inner {
+  border-radius: var(--el-border-radius-small) !important;
+  box-shadow: 0 0 0 1px var(--el-border-color) inset !important;
+  transition: all 0.2s;
+
+  &:hover {
+    box-shadow: 0 0 0 1px var(--el-color-primary-light-5) inset !important;
+  }
+
+  &.is-focus, &:focus {
+    box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 0 0 2px var(--el-color-primary-light-8) !important;
+  }
+}
+
+// 4. 表格 (Table)
+.el-table {
+  border-radius: var(--el-border-radius-base);
+  
+  th.el-table__cell {
+    background-color: var(--el-fill-color-light) !important;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+
+  .el-table__row {
+    transition: background-color 0.2s;
+    
+    &:hover > td.el-table__cell {
+      background-color: var(--el-fill-color) !important;
+    }
+  }
+
+  // 隐藏内部多余的纵向边框以提升呼吸感
+  --el-table-border-color: var(--el-border-color-lighter);
+  
+  .el-table__inner-wrapper::before {
+    display: none;
+  }
+}
+
+// 5. 对话框 (Dialog)
+.el-dialog {
+  border-radius: var(--el-border-radius-base) !important;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05) !important;
+  
+  .el-dialog__header {
+    font-weight: 600;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    margin-right: 0;
+  }
+}

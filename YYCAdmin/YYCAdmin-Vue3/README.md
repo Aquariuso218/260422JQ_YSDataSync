@@ -1,8 +1,8 @@
 <h2 align="center"> ZRAdmin.NET后台管理系统</h2>
 
 <p align="center">
-	<a href="https://gitee.com/izory/ZrAdminNetCore"><img src="https://gitee.com/izory/ZrAdminNetCore/badge/star.svg?theme=dark"></a>
-	<a href="https://gitee.com/izory/ZrAdminNetCore/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mashape/apistatus.svg"></a>
+ <a href="https://gitee.com/izory/ZrAdminNetCore"><img src="https://gitee.com/izory/ZrAdminNetCore/badge/star.svg?theme=dark"></a>
+ <a href="https://gitee.com/izory/ZrAdminNetCore/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mashape/apistatus.svg"></a>
 </p>
 
 ## 🍟 概述
@@ -68,8 +68,3 @@ yarn dev
 4. 全局异常统一处理
 5. 自定义的代码生成功能
 6. 国际化
-
-## 💐 特别鸣谢
-
-- 👉Ruoyi.vue：[Ruoyi](http://www.ruoyi.vip/)
-- 👉zb-admin: [zb-admin](https://gitee.com/yuanzbz/vue-admin-perfect)

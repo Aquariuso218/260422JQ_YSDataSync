@@ -1,4 +1,4 @@
-﻿namespace ZR.Model.Business.Model.Dto;
+namespace ZR.Model.Business.Dto;
 
 public class ApCloseBillDto
 {
@@ -81,7 +81,7 @@ public class ApCloseBillDto
         public string cNoteCode { get; set; }
 
         /// <summary>
-        /// 票证方向
+        /// 票证方向（1-收到票据，2-开出票据）
         /// </summary>
         public string receiptDirection { get; set; }
 
