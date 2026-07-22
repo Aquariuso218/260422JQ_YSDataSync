@@ -83,9 +83,13 @@ namespace ZR.Service.Business.Ys
                 var pendingRows = await _midBillRepository.Queryable()
                     .Where(x => x.CDwType != "其他" 
                                 && (x.ProcessStatus != 1 || x.ProcessStatus != 3) 
-                                && x.SettleStatus != SettledStatusValue
                                 && x.MainId != null && x.MainId != ""
                                 && x.TradetypeName != "贴现办理" && x.TradetypeName != "到期兑付" && x.TradetypeName != "银行托收")
+                    .Where(x => x.SettleStatus != SettledStatusValue 
+                                || (x.CVouchType == "资金付款" 
+                                    && x.CNoteCode != null && x.CNoteCode != "" 
+                                    && x.ReceiptDirection == "1" 
+                                    && (x.PayerCode == null || x.PayerCode == "")))
                     .ToListAsync();
 
                 if (pendingRows.Count == 0)
@@ -351,7 +355,18 @@ namespace ZR.Service.Business.Ys
                 }
 
                 var latestRow = await MapRowAsync(detail, item, accessToken);
-                if (latestRow == null || !NeedsRefreshUpdate(pendingRow, latestRow))
+                if (latestRow == null)
+                {
+                    continue;
+                }
+
+                // 【安全保护】：若本次刷新未获取到 payerCode，但数据库旧记录已有值，则保留旧值，不进行覆盖
+                if (string.IsNullOrWhiteSpace(latestRow.PayerCode) && !string.IsNullOrWhiteSpace(pendingRow.PayerCode))
+                {
+                    latestRow.PayerCode = pendingRow.PayerCode;
+                }
+
+                if (!NeedsRefreshUpdate(pendingRow, latestRow))
                 {
                     continue;
                 }
@@ -490,6 +505,36 @@ namespace ZR.Service.Business.Ys
                 dwCode = await GetDwCodeAsync(item.CounterpartyType, item.CounterpartyId, accessToken);
             }
 
+            // 新需求：单据类型等于资金付款、票据号有数据、票证方向等于1时，调用收票登记获取payerCode字段。
+            bool isPayerCodeRequired = string.Equals(vouchType, FundPaymentVouchType, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(item.NoteCode)
+                && string.Equals(item.ReceiptDirection, "1", StringComparison.Ordinal);
+
+            string payerCode = null;
+            if (isPayerCodeRequired)
+            {
+                try
+                {
+
+                    //调整此处查询时需要使用组织编码作为参数，避免因不同组织下的票据号重复导致查询错误
+                    //参数名"accentityCode": "1002"
+                    var registerResponse = await _apiClient.PostAsync<YsApiResponseDto<List<YsRegisterDetailDto>>>(
+                        "/yonbip/ctm/api/register/detail",
+                        new { noteno = item.NoteCode, accentityCode = orgCode },
+                        accessToken
+                    );
+                    if (registerResponse != null && string.Equals(registerResponse.Code, "200", StringComparison.OrdinalIgnoreCase))
+                    {
+                        payerCode = registerResponse.Data?.FirstOrDefault()?.PayerCode;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 仅记录警告日志，忽略该错误以继续处理（选项 A）
+                    Console.WriteLine($"[WARN] Fetch payerCode for NoteCode {item.NoteCode} failed: {ex.Message}");
+                }
+            }
+
             return new EfMidysbilldata
             {
                 Id = item.Id,
@@ -510,14 +555,17 @@ namespace ZR.Service.Business.Ys
                 IAmount = item.OriginalCurrencyAmount ?? item.SuccessAmount ?? 0m,
                 CNoteCode = NormalizeString(item.NoteCode),
                 TradetypeName = NormalizeString(item.TradetypeName),
-                crBankNo = NormalizeString(item.crBankNo),
-                caccountNum = NormalizeString(item.caccountNum),
+                // 新需求：消除银行行号和账号的空格
+                crBankNo = RemoveAllSpaces(item.crBankNo),
+                caccountNum = RemoveAllSpaces(item.caccountNum),
                 caccountName = NormalizeString(item.caccountName),
                 cbank = NormalizeString(cbank),
                 cbranch = NormalizeString(item.cbranch),
                 cdigest = NormalizeString(item.cdigest),
                 // 转换空字符串 "" 和空格为 null 妥善处理
                 ReceiptDirection = string.IsNullOrWhiteSpace(item.ReceiptDirection) ? null : item.ReceiptDirection.Trim(),
+                PayerCode = payerCode,
+                bizbillno = NormalizeString(item.bizbillno)
             };
         }
 
@@ -707,7 +755,7 @@ namespace ZR.Service.Business.Ys
             foreach (var row in rows.Where(x => !existingIdSet.Contains(x.Id)))
             {
                 row.CreateTime = now;
-                row.ProcessStatus = 0;
+                row.ProcessStatus = string.Equals(row.CDwType, "其他", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
                 row.UpdateTime = null;
                 await _db.Insertable(row).ExecuteCommandAsync();
             }
@@ -813,7 +861,8 @@ namespace ZR.Service.Business.Ys
                 || currentRow.IAmount != latestRow.IAmount
                 || !string.Equals(currentRow.CNoteCode, latestRow.CNoteCode, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(currentRow.TradetypeName, latestRow.TradetypeName, StringComparison.OrdinalIgnoreCase)
-                || currentRow.ReceiptDirection != latestRow.ReceiptDirection;
+                || currentRow.ReceiptDirection != latestRow.ReceiptDirection
+                || !string.Equals(currentRow.PayerCode, latestRow.PayerCode, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -832,6 +881,18 @@ namespace ZR.Service.Business.Ys
                 .ToDictionary(parts => parts[0], parts => parts[1], StringComparer.OrdinalIgnoreCase);
 
             return parameters.TryGetValue("isCompensation", out var value) && bool.TryParse(value, out var result) && result;
+        }
+
+        /// <summary>
+        /// 去除字符串中的所有空格和空白字符。
+        /// </summary>
+        private static string RemoveAllSpaces(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+            return System.Text.RegularExpressions.Regex.Replace(value, @"\s+", "");
         }
     }
 }

@@ -63,7 +63,7 @@
           <router-link class="link-type" :to="'/login'">使用已有账户登录</router-link>
         </div>
       </el-form>
-      <oauthLogin></oauthLogin>
+      <oauthLogin v-if="defaultSettings.showOtherLogin"></oauthLogin>
     </div>
     <!--  底部  -->
     <div class="el-register-footer">

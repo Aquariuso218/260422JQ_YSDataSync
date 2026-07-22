@@ -57,29 +57,40 @@
 
     <el-table :data="dataList" v-loading="loading" ref="table" border header-cell-class-name="el-table-header-cell"
       highlight-current-row @sort-change="sortChange">
-      <el-table-column prop="autoId" label="自增主键" align="center" min-width="100" v-if="columns.showColumn('autoId')" />
+      <el-table-column type="index" width="60" label="序号" align="center" fixed="left" />
+      <el-table-column prop="autoId" label="自增主键" align="center" min-width="100" v-if="columns.showColumn('autoId')" sortable="custom" />
       <el-table-column prop="id" label="子表ID" align="center" :show-overflow-tooltip="true" min-width="180"
-        v-if="columns.showColumn('id')" />
+        v-if="columns.showColumn('id')" sortable="custom" />
       <el-table-column prop="mainId" label="表头ID" align="center" :show-overflow-tooltip="true" min-width="180"
-        v-if="columns.showColumn('mainId')" />
+        v-if="columns.showColumn('mainId')" sortable="custom" />
       <el-table-column prop="cVouchCode" label="单据编码" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('cVouchCode')" />
+        v-if="columns.showColumn('cVouchCode')" sortable="custom" />
       <el-table-column prop="billDate" label="单据日期" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('billDate')" />
+        v-if="columns.showColumn('billDate')" sortable="custom" />
       <el-table-column prop="cMaker" label="制单人名" align="center" :show-overflow-tooltip="true" min-width="120"
-        v-if="columns.showColumn('cMaker')" />
+        v-if="columns.showColumn('cMaker')" sortable="custom" />
       <el-table-column prop="orgCode" label="组织编码" align="center" :show-overflow-tooltip="true" min-width="120"
-        v-if="columns.showColumn('orgCode')" />
+        v-if="columns.showColumn('orgCode')" sortable="custom" />
       <el-table-column prop="cDepCode" label="部门编码" align="center" :show-overflow-tooltip="true" min-width="120"
-        v-if="columns.showColumn('cDepCode')" />
+        v-if="columns.showColumn('cDepCode')" sortable="custom" />
       <el-table-column prop="cNatBankAccount" label="企业单位银行账号" align="center" :show-overflow-tooltip="true"
-        min-width="180" v-if="columns.showColumn('cNatBankAccount')" />
+        min-width="180" v-if="columns.showColumn('cNatBankAccount')" sortable="custom" />
       <el-table-column prop="cNatBank" label="企业单位银行账户名称" align="center" :show-overflow-tooltip="true" min-width="200"
-        v-if="columns.showColumn('cNatBank')" />
+        v-if="columns.showColumn('cNatBank')" sortable="custom" />
+      <el-table-column prop="caccountName" label="对方银行账户名称" align="center" :show-overflow-tooltip="true" min-width="200"
+        v-if="columns.showColumn('caccountName')" sortable="custom" />
+      <el-table-column prop="caccountNum" label="对方银行账号" align="center" :show-overflow-tooltip="true" min-width="180"
+        v-if="columns.showColumn('caccountNum')" sortable="custom" />
+      <el-table-column prop="cbank" label="对方开户银行" align="center" :show-overflow-tooltip="true" min-width="150"
+        v-if="columns.showColumn('cbank')" sortable="custom" />
+      <el-table-column prop="cbranch" label="对方开户行支行" align="center" :show-overflow-tooltip="true" min-width="200"
+        v-if="columns.showColumn('cbranch')" sortable="custom" />
+      <el-table-column prop="crBankNo" label="对方银行行号" align="center" :show-overflow-tooltip="true" min-width="150"
+        v-if="columns.showColumn('crBankNo')" sortable="custom" />
       <el-table-column prop="cssName" label="结算方式名称" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('cssName')" />
+        v-if="columns.showColumn('cssName')" sortable="custom" />
       <el-table-column prop="settleStatus" label="结算状态" align="center" min-width="100"
-        v-if="columns.showColumn('settleStatus')">
+        v-if="columns.showColumn('settleStatus')" sortable="custom">
         <template #default="scope">
           <el-tag :type="scope.row.settleStatus == 3 ? 'success' : 'info'">
             {{ scope.row.settleStatus == 3 ? '已结算' : '未结算' }}
@@ -87,38 +98,42 @@
         </template>
       </el-table-column>
       <el-table-column prop="quickTypeName" label="款项类型名称" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('quickTypeName')" />
+        v-if="columns.showColumn('quickTypeName')" sortable="custom" />
       <el-table-column prop="cVouchType" label="单据类型" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('cVouchType')" />
+        v-if="columns.showColumn('cVouchType')" sortable="custom" />
       <el-table-column prop="cDwType" label="对象类型" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('cDwType')" />
+        v-if="columns.showColumn('cDwType')" sortable="custom" />
       <el-table-column prop="cDwCode" label="对象编码" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('cDwCode')" />
-      <el-table-column prop="iAmount" label="金额" align="center" min-width="120" v-if="columns.showColumn('iAmount')" />
+        v-if="columns.showColumn('cDwCode')" sortable="custom" />
+      <el-table-column prop="iAmount" label="金额" align="center" min-width="120" v-if="columns.showColumn('iAmount')" sortable="custom" />
       <el-table-column prop="cNoteCode" label="票据号" align="center" :show-overflow-tooltip="true" min-width="180"
-        v-if="columns.showColumn('cNoteCode')" />
+        v-if="columns.showColumn('cNoteCode')" sortable="custom" />
+      <el-table-column prop="payerCode" label="客户编码" align="center" :show-overflow-tooltip="true" min-width="150"
+        v-if="columns.showColumn('payerCode')" sortable="custom" />
       <el-table-column prop="tradetypeName" label="来源交易类型" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('tradetypeName')" />
+        v-if="columns.showColumn('tradetypeName')" sortable="custom" />
       <el-table-column prop="discountInterest" label="利息" align="center" min-width="120"
-        v-if="columns.showColumn('discountInterest')" />
+        v-if="columns.showColumn('discountInterest')" sortable="custom" />
       <el-table-column prop="noteTypeCode" label="票据类型" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('noteTypeCode')" />
+        v-if="columns.showColumn('noteTypeCode')" sortable="custom" />
       <el-table-column prop="createTime" label="数据写入时间" :show-overflow-tooltip="true" min-width="180"
-        v-if="columns.showColumn('createTime')" />
+        v-if="columns.showColumn('createTime')" sortable="custom" />
       <el-table-column prop="updateTime" label="状态刷新时间" :show-overflow-tooltip="true" min-width="180"
-        v-if="columns.showColumn('updateTime')" />
+        v-if="columns.showColumn('updateTime')" sortable="custom" />
       <el-table-column prop="processStatus" label="处理状态" align="center" min-width="100"
-        v-if="columns.showColumn('processStatus')">
+        v-if="columns.showColumn('processStatus')" sortable="custom">
         <template #default="scope">
           <dict-tag :options="options.processStatusOptions" :value="scope.row.processStatus" />
         </template>
       </el-table-column>
       <el-table-column prop="processMsg" label="报错信息" align="center" :show-overflow-tooltip="true" min-width="200"
-        v-if="columns.showColumn('processMsg')" />
+        v-if="columns.showColumn('processMsg')" sortable="custom" />
       <el-table-column prop="u8Code" label="U8单据号" align="center" :show-overflow-tooltip="true" min-width="150"
-        v-if="columns.showColumn('u8Code')" />
+        v-if="columns.showColumn('u8Code')" sortable="custom" />
       <el-table-column prop="synTime" label="写入U8时间" :show-overflow-tooltip="true" min-width="180"
-        v-if="columns.showColumn('synTime')" />
+        v-if="columns.showColumn('synTime')" sortable="custom" />
+      <el-table-column prop="cdigest" label="摘要" align="center" :show-overflow-tooltip="true" min-width="200"
+        v-if="columns.showColumn('cdigest')" sortable="custom" />
       <el-table-column label="操作" width="100" fixed="right">
         <template #default="scope">
           <el-button type="primary" size="small" icon="view" title="查看" @click="handleView(scope.row)">查看</el-button>
@@ -126,7 +141,7 @@
       </el-table-column>
     </el-table>
     <pagination :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize"
-      @pagination="getList" />
+      :page-sizes="[10, 20, 30, 50, 100, 1000, 2000]" @pagination="getList" />
 
 
     <el-dialog :title="title" :lock-scroll="false" v-model="open" width="900px">
@@ -141,6 +156,11 @@
         <el-descriptions-item label="部门编码">{{ form.cDepCode }}</el-descriptions-item>
         <el-descriptions-item label="企业单位银行账号">{{ form.cNatBankAccount }}</el-descriptions-item>
         <el-descriptions-item label="企业单位银行账户名称">{{ form.cNatBank }}</el-descriptions-item>
+        <el-descriptions-item label="对方银行账户名称">{{ form.caccountName }}</el-descriptions-item>
+        <el-descriptions-item label="对方银行账号">{{ form.caccountNum }}</el-descriptions-item>
+        <el-descriptions-item label="对方开户银行">{{ form.cbank }}</el-descriptions-item>
+        <el-descriptions-item label="对方开户行支行">{{ form.cbranch }}</el-descriptions-item>
+        <el-descriptions-item label="对方银行行号">{{ form.crBankNo }}</el-descriptions-item>
         <el-descriptions-item label="结算方式名称">{{ form.cssName }}</el-descriptions-item>
         <el-descriptions-item label="结算状态">
           <el-tag :type="form.settleStatus == 3 ? 'success' : 'info'">
@@ -153,6 +173,7 @@
         <el-descriptions-item label="对象编码">{{ form.cDwCode }}</el-descriptions-item>
         <el-descriptions-item label="金额">{{ form.iAmount }}</el-descriptions-item>
         <el-descriptions-item label="票据号">{{ form.cNoteCode }}</el-descriptions-item>
+        <el-descriptions-item label="客户编码">{{ form.payerCode }}</el-descriptions-item>
         <el-descriptions-item label="来源交易类型">{{ form.tradetypeName }}</el-descriptions-item>
         <el-descriptions-item label="利息">{{ form.discountInterest }}</el-descriptions-item>
         <el-descriptions-item label="票据类型">{{ form.noteTypeCode }}</el-descriptions-item>
@@ -164,6 +185,7 @@
         <el-descriptions-item label="报错信息">{{ form.processMsg }}</el-descriptions-item>
         <el-descriptions-item label="U8单据号">{{ form.u8Code }}</el-descriptions-item>
         <el-descriptions-item label="写入U8时间">{{ form.synTime }}</el-descriptions-item>
+        <el-descriptions-item label="摘要">{{ form.cdigest }}</el-descriptions-item>
       </el-descriptions>
       <template #footer v-if="opertype != 3">
         <el-button text @click="cancel">{{ $t('btn.cancel') }}</el-button>
@@ -187,7 +209,7 @@ const showSearch = ref(true)
 const dateRangeBillDate = ref([])
 const queryParams = reactive({
   pageNum: 1,
-  pageSize: 10,
+  pageSize: 30,
   sort: '',
   sortType: 'asc',
   id: undefined,
@@ -211,6 +233,11 @@ const columns = ref([
   { visible: true, align: 'center', type: '', prop: 'cDepCode', label: '部门编码', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'cNatBankAccount', label: '企业单位银行账号', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'cNatBank', label: '企业单位银行账户名称', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'caccountName', label: '对方银行账户名称', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'caccountNum', label: '对方银行账号', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'cbank', label: '对方开户银行', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'cbranch', label: '对方开户行支行', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'crBankNo', label: '对方银行行号', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'cssName', label: '结算方式名称', showOverflowTooltip: true },
   { visible: true, align: 'center', type: 'dict', prop: 'settleStatus', label: '结算状态' },
   { visible: true, align: 'center', type: '', prop: 'quickTypeName', label: '款项类型名称', showOverflowTooltip: true },
@@ -219,6 +246,7 @@ const columns = ref([
   { visible: true, align: 'center', type: '', prop: 'cDwCode', label: '对象编码', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'iAmount', label: '金额' },
   { visible: true, align: 'center', type: '', prop: 'cNoteCode', label: '票据号', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'payerCode', label: '客户编码', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'tradetypeName', label: '来源交易类型', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'discountInterest', label: '利息' },
   { visible: true, align: 'center', type: '', prop: 'noteTypeCode', label: '票据类型', showOverflowTooltip: true },
@@ -228,6 +256,7 @@ const columns = ref([
   { visible: true, align: 'center', type: '', prop: 'processMsg', label: '报错信息', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'u8Code', label: 'U8单据号', showOverflowTooltip: true },
   { visible: true, align: 'center', type: '', prop: 'synTime', label: '写入U8时间', showOverflowTooltip: true },
+  { visible: true, align: 'center', type: '', prop: 'cdigest', label: '摘要', showOverflowTooltip: true },
   //{ visible: false, prop: 'actions', label: '操作', type: 'slot', width: '160' }
 ])
 const total = ref(0)
@@ -296,8 +325,9 @@ const state = reactive({
     settlestatusOptions: [],
     processStatusOptions: [
       { dictLabel: '未处理', dictValue: '0', listClass: 'info' },
-      { dictLabel: '成功', dictValue: '1', listClass: 'success' },
-      { dictLabel: '失败', dictValue: '2', listClass: 'danger' }
+      { dictLabel: '处理成功', dictValue: '1', listClass: 'success' },
+      { dictLabel: '处理失败', dictValue: '2', listClass: 'danger' },
+      { dictLabel: '终止', dictValue: '3', listClass: 'warning' }
     ],
     cVouchTypeOptions: [],
     cDwTypeOptions: []
@@ -342,6 +372,13 @@ function reset() {
     processMsg: null,
     u8Code: null,
     synTime: null,
+    cbank: null,
+    cbranch: null,
+    caccountNum: null,
+    caccountName: null,
+    crBankNo: null,
+    payerCode: null,
+    cdigest: null,
   };
   proxy.resetForm("formRef")
 }

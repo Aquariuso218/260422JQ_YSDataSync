@@ -96,5 +96,7 @@ namespace ZR.Model.Business.Dto
         public string crBankNo { get; set; }
 
         public string cdigest { get; set; }
+
+        public string PayerCode { get; set; }
     }
 }

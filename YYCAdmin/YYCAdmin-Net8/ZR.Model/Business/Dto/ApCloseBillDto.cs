@@ -95,8 +95,16 @@ public class ApCloseBillDto
         /// </summary>
         public decimal iAmount { get; set; }
         
-        
+        //手续费
         public decimal discountInterest { get; set; }
         
+        //票据类型
         public string noteTypeCode { get; set; }
+
+         //票据的客户编码
+        public string PayerCode { get; set; }
+
+         //YS付款单号
+        public string bizbillno { get; set; }
+
 }

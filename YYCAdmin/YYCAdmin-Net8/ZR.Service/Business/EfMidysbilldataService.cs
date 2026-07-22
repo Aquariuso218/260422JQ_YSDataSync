@@ -24,6 +24,7 @@ namespace ZR.Service.Business
 
             var response = Queryable()
                 .Where(predicate.ToExpression())
+                .OrderBy(x => x.AutoId, OrderByType.Desc) // 根据自增主键倒序
                 .ToPage<EfMidysbilldata, EfMidysbilldataDto>(parm);
 
             return response;

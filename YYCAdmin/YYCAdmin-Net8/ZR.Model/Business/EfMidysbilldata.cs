@@ -115,5 +115,10 @@ namespace ZR.Model.Business
         [SugarColumn(ColumnName = "bizbillno", Length = 200, IsNullable = true)]
         public string bizbillno { get; set; }
 
+        /// <summary>
+        /// 客户编码
+        /// </summary>
+        [SugarColumn(ColumnName = "payerCode", Length = 100, IsNullable = true)]
+        public string PayerCode { get; set; }
     }
 }

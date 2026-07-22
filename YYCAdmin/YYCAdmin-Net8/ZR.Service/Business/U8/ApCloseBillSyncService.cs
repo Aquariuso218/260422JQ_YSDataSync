@@ -123,7 +123,9 @@ namespace ZR.Service.Business.U8
                 iAmount = row.IAmount ?? 0,
                 noteTypeCode = row.NoteTypeCode,
                 discountInterest = row.DiscountInterest ?? 0,
-                receiptDirection = row.ReceiptDirection
+                receiptDirection = row.ReceiptDirection,
+                PayerCode = row.PayerCode,
+                bizbillno = row.bizbillno
             };
         }
 

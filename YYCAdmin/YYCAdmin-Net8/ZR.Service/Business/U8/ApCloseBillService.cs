@@ -1,7 +1,14 @@
 using Infrastructure.Attribute;
+using JinianNet.JNTemplate;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Identity.Client;
+using Org.BouncyCastle.Asn1.X509;
+using Org.BouncyCastle.Crypto;
 using SqlSugar.IOC;
+using System.Collections.Generic;
 using System.Data;
+using System.Reflection.Emit;
+using System.Text;
 using ZR.Model.Business.Dto;
 using ZR.Service.Business.IService;
 using ZR.Service.Business.U8.Dtos;
@@ -318,6 +325,11 @@ public class ApCloseBillService : IApCloseBillService
                     {
                         isignseq = "5";
                         csign = "转账";
+
+                        if (apCloseBill.orgCode == "1004")
+                        {
+                            csign = "转";
+                        }
 
                         mdCode = "1012";
                         if (apCloseBill.orgCode == "1001")
@@ -864,7 +876,7 @@ public class ApCloseBillService : IApCloseBillService
 
                             //收款单主表
                             _db.Ado.ExecuteCommand(
-                                $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13) select N'48',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cCusCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AR','{ZBID}',null,0,0,0,8052,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ar48|{cVouchID}',cCusBank,cCusAccount,@cNatBank,@cNatBankAccount,@cNoteCode from {u8DbName}..Customer (nolock) where cCusCode='{cCusCode}'",
+                                $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13,cDefine14,cDefine12) select N'48',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cCusCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AR','{ZBID}',null,0,0,0,8052,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ar48|{cVouchID}',cCusBank,cCusAccount,@cNatBank,@cNatBankAccount,@cNoteCode,@bizbillno,@cVouchCode from {u8DbName}..Customer (nolock) where cCusCode='{cCusCode}'",
                                 new SugarParameter[]
                                 {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
@@ -872,7 +884,9 @@ public class ApCloseBillService : IApCloseBillService
                                     new SugarParameter("@ID", apCloseBill.ID),
                                     new SugarParameter("@cNatBank", apCloseBill.cNatBank),
                                     new SugarParameter("@cNatBankAccount", apCloseBill.cNatBankAccount),
-                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode)
+                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode),
+                                    new SugarParameter("@bizbillno", apCloseBill.bizbillno),
+                                    new SugarParameter("@cVouchCode", apCloseBill.cVouchCode)
                                 });
 
 
@@ -1011,59 +1025,28 @@ public class ApCloseBillService : IApCloseBillService
                             //来源票据号
                             if (!string.IsNullOrWhiteSpace(apCloseBill.cNoteCode))
                             {
-                                //票证方向（1-收到票据（对应应收票据科目），2-开出票据（对应应付票据科目））
-                                if (apCloseBill.receiptDirection == "1")
+                                //表头结算科目（应付票据科目）
+                                if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
                                 {
-                                    //表头结算科目（应收票据科目）
-                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
-                                    {
-                                        KmcCode = "1121";
-                                    }
-                                    else
-                                    {
-                                        if (apCloseBill.cSSName == "银行承兑汇票")
-                                        {
-                                            KmcCode = "112101";
-                                        }
-                                        else if (apCloseBill.cSSName == "商业承兑汇票")
-                                        {
-                                            KmcCode = "112103";
-                                        }
-                                        else if (apCloseBill.cSSName == "债权凭证")
-                                        {
-                                            KmcCode = "112102";
-                                        }
-                                        else
-                                        {
-                                            KmcCode = "112104";
-                                        }
-                                    }
+                                    KmcCode = "2201";
                                 }
                                 else
                                 {
-                                    //表头结算科目（应付票据科目）
-                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                    if (apCloseBill.cSSName == "银行承兑汇票")
                                     {
-                                        KmcCode = "2201";
+                                        KmcCode = "220101";
+                                    }
+                                    else if (apCloseBill.cSSName == "商业承兑汇票")
+                                    {
+                                        KmcCode = "220103";
+                                    }
+                                    else if (apCloseBill.cSSName == "债权凭证")
+                                    {
+                                        KmcCode = "220104";
                                     }
                                     else
                                     {
-                                        if (apCloseBill.cSSName == "银行承兑汇票")
-                                        {
-                                            KmcCode = "220101";
-                                        }
-                                        else if (apCloseBill.cSSName == "商业承兑汇票")
-                                        {
-                                            KmcCode = "220103";
-                                        }
-                                        else if (apCloseBill.cSSName == "债权凭证")
-                                        {
-                                            KmcCode = "220104";
-                                        }
-                                        else
-                                        {
-                                            KmcCode = "220102";
-                                        }
+                                        KmcCode = "220102";
                                     }
                                 }
                             }
@@ -1091,7 +1074,7 @@ public class ApCloseBillService : IApCloseBillService
 
                             //红字付款单主表
                             _db.Ado.ExecuteCommand(
-                                $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13) select N'48',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AP','{ZBID}',null,0,0,0,8051,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ap48|{cVouchID}',cVenBank,cVenAccount,@cNatBank,@cNatBankAccount,@cNoteCode from {u8DbName}..Vendor (nolock) where cVenCode='{cVenCode}'",
+                                $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13,cDefine14,cDefine12) select N'48',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AP','{ZBID}',null,0,0,0,8051,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ap48|{cVouchID}',cVenBank,cVenAccount,@cNatBank,@cNatBankAccount,@cNoteCode,@bizbillno,@cVouchCode from {u8DbName}..Vendor (nolock) where cVenCode='{cVenCode}'",
                                 new SugarParameter[]
                                 {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
@@ -1099,7 +1082,9 @@ public class ApCloseBillService : IApCloseBillService
                                     new SugarParameter("@ID", apCloseBill.ID),
                                     new SugarParameter("@cNatBank", apCloseBill.cNatBank),
                                     new SugarParameter("@cNatBankAccount", apCloseBill.cNatBankAccount),
-                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode)
+                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode),
+                                    new SugarParameter("@bizbillno", apCloseBill.bizbillno),
+                                    new SugarParameter("@cVouchCode", apCloseBill.cVouchCode)
                                 });
 
                             //是否存在扩展自定义项表
@@ -1295,7 +1280,7 @@ public class ApCloseBillService : IApCloseBillService
 
                             //红字收款单主表
                             _db.Ado.ExecuteCommand(
-                                $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13) select N'49',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cCusCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AR','{ZBID}',null,0,0,0,8055,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ar49|{cVouchID}',cCusBank,cCusAccount,@cNatBank,@cNatBankAccount,@cNoteCode from {u8DbName}..Customer (nolock) where cCusCode='{cCusCode}'",
+                                $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13,cDefine14,cDefine12) select N'49',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cCusCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AR','{ZBID}',null,0,0,0,8055,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ar49|{cVouchID}',cCusBank,cCusAccount,@cNatBank,@cNatBankAccount,@cNoteCode,@bizbillno,@cVouchCode from {u8DbName}..Customer (nolock) where cCusCode='{cCusCode}'",
                                 new SugarParameter[]
                                 {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
@@ -1303,7 +1288,9 @@ public class ApCloseBillService : IApCloseBillService
                                     new SugarParameter("@ID", apCloseBill.ID),
                                     new SugarParameter("@cNatBank", apCloseBill.cNatBank),
                                     new SugarParameter("@cNatBankAccount", apCloseBill.cNatBankAccount),
-                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode)
+                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode),
+                                    new SugarParameter("@bizbillno", apCloseBill.bizbillno),
+                                    new SugarParameter("@cVouchCode", apCloseBill.cVouchCode)
                                 });
 
                             //是否存在扩展自定义项表
@@ -1438,64 +1425,111 @@ public class ApCloseBillService : IApCloseBillService
                             string KmcCode = _db.Ado.GetString(
                                 $"select cCode from {u8DbName}..Ap_SStyleCode (nolock) where iyear={DateTime.Parse(apCloseBill.billDate).Year} and cSettleStyle='{cSSCode}' and cFlag='AP'");
 
+                            //背书票据客户编码
+                            string PayerCode = "";
+                            //业务流水号
+                            string coutno_id = "";
+                            //凭证号
+                            string ino_id = "";
+                            //凭证类别
+                            string isignseq = "";
+                            string csign = "";
+                            string cPZNum = "";
+                            //凭证日期
+                            string doutbilldate = "";
+                            //凭证期间
+                            string iSignSeqmonth = "";
+                            string iSignino_id = "";
+
+                            //是否生成凭证标识
+                            bool boolisPZ = false;
+
                             //单据来源票据
                             if (!string.IsNullOrWhiteSpace(apCloseBill.cNoteCode))
                             {
-                                //票证方向（1-收到票据（对应应收票据科目），2-开出票据（对应应付票据科目））
-                                if (apCloseBill.receiptDirection == "1")
+                                //表头结算科目（应付票据科目）
+                                if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
                                 {
-                                    //表头结算科目（应收票据科目）
-                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
-                                    {
-                                        KmcCode = "1121";
-                                    }
-                                    else
-                                    {
-                                        if (apCloseBill.cSSName == "银行承兑汇票")
-                                        {
-                                            KmcCode = "112101";
-                                        }
-                                        else if (apCloseBill.cSSName == "商业承兑汇票")
-                                        {
-                                            KmcCode = "112103";
-                                        }
-                                        else if (apCloseBill.cSSName == "债权凭证")
-                                        {
-                                            KmcCode = "112102";
-                                        }
-                                        else
-                                        {
-                                            KmcCode = "112104";
-                                        }
-                                    }
+                                    KmcCode = "2201";
                                 }
                                 else
                                 {
-
-                                    //表头结算科目（应付票据科目）
-                                    if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                    if (apCloseBill.cSSName == "银行承兑汇票")
                                     {
-                                        KmcCode = "2201";
+                                        KmcCode = "220101";
+                                    }
+                                    else if (apCloseBill.cSSName == "商业承兑汇票")
+                                    {
+                                        KmcCode = "220103";
+                                    }
+                                    else if (apCloseBill.cSSName == "债权凭证")
+                                    {
+                                        KmcCode = "220104";
                                     }
                                     else
                                     {
-                                        if (apCloseBill.cSSName == "银行承兑汇票")
+                                        KmcCode = "220102";
+                                    }
+                                }
+
+                                //票证方向（1-收到票据（对应应收票据科目），2-开出票据（对应应付票据科目））
+                                if (apCloseBill.receiptDirection == "1")
+                                {
+                                    //背书票据判定客户编码是否存在
+                                    if (!string.IsNullOrWhiteSpace(apCloseBill.PayerCode))
+                                    {
+                                        //获取客户编码
+                                        PayerCode = _db.Ado.GetString(
+                                            $"select cCusCode from {u8DbName}..Customer (nolock) where cCusCode=@PayerCode",
+                                            new SugarParameter[]
+                                            {
+                                        new SugarParameter("@PayerCode", apCloseBill.PayerCode.Remove(0, u8prefix.Length))
+                                            });
+                                        if (string.IsNullOrWhiteSpace(PayerCode))
                                         {
-                                            KmcCode = "220101";
-                                        }
-                                        else if (apCloseBill.cSSName == "商业承兑汇票")
-                                        {
-                                            KmcCode = "220103";
-                                        }
-                                        else if (apCloseBill.cSSName == "债权凭证")
-                                        {
-                                            KmcCode = "220104";
-                                        }
-                                        else
-                                        {
-                                            KmcCode = "220102";
+                                            throw new Exception("客户编码[" + PayerCode + "]在U8业务账套号[" + u8AccId + "]客户档案中不存在");
                                         }
                                     }
+                                    else
+                                    {
+                                        throw new Exception("背书票据结算单的客户编码未传入");
+                                    }
+
+                                    isignseq = "5";
+                                    csign = "转账";
+
+                                    if (apCloseBill.orgCode == "1004")
+                                    {
+                                        csign = "转";
+                                    }
+
+                                    //判断凭证类别是否存在
+                                    string i_id =
+                                        _db.Ado.GetString(
+                                            $"select i_id from {u8DbName}..dsign (nolock) where csign='{csign}' and isignseq='{isignseq}'");
+                                    if (string.IsNullOrWhiteSpace(i_id))
+                                    {
+                                        throw new Exception("凭证类别字[" + csign + "]在U8账套号[" + u8AccId + "]中不存在");
+                                    }
+
+                                    //获取凭证业务号
+                                    coutno_id =
+                                        _db.Ado.GetString(
+                                            $"declare @p4 nvarchar(17) set @p4=N'AP0000000000001' exec {u8DbName}..Ap_Proc_CancelNo N'PZ',N'AP',default,@p4 output select @p4");
+
+                                    //获取最大凭证号
+                                    ino_id = _db.Ado.GetString(
+                                        $"SELECT isnull(max(ino_id),0)+1  from {u8DbName}..gl_accvouch (nolock) where iperiod='{DateTime.Parse(apCloseBill.billDate).Month}' and isignseq='{isignseq}' and csign='{csign}' and iyear='{DateTime.Parse(apCloseBill.billDate).Year}'");
+
+                                    cPZNum = csign + "-" + ino_id.PadLeft(4, '0');
+
+                                    doutbilldate = apCloseBill.billDate;
+
+                                    iSignSeqmonth = DateTime.Parse(apCloseBill.billDate).Month.ToString();
+
+                                    iSignino_id = "1";
+
+                                    boolisPZ = true;
                                 }
                             }
 
@@ -1528,7 +1562,7 @@ public class ApCloseBillService : IApCloseBillService
                                 #region 银企联账户对应的付款单不审核
                                 //付款单主表
                                 _db.Ado.ExecuteCommand(
-                                    $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13) select N'49',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AP','{ZBID}',null,0,0,0,8053,null,@ID,0,null,null,null,GETDATE(),null,null,null,null,0,N'||ap49|{cVouchID}',cVenBank,cVenAccount,@cNatBank,@cNatBankAccount,@cNoteCode from {u8DbName}..Vendor (nolock) where cVenCode='{cVenCode}'",
+                                    $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13,cDefine14,cDefine12) select N'49',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AP','{ZBID}',null,0,0,0,8053,null,@ID,0,null,null,null,GETDATE(),null,null,null,null,0,N'||ap49|{cVouchID}',cVenBank,cVenAccount,@cNatBank,@cNatBankAccount,@cNoteCode,@bizbillno,@cVouchCode from {u8DbName}..Vendor (nolock) where cVenCode='{cVenCode}'",
                                     new SugarParameter[]
                                     {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
@@ -1536,7 +1570,9 @@ public class ApCloseBillService : IApCloseBillService
                                     new SugarParameter("@ID", apCloseBill.ID),
                                     new SugarParameter("@cNatBank", apCloseBill.cNatBank),
                                     new SugarParameter("@cNatBankAccount", apCloseBill.cNatBankAccount),
-                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode)
+                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode),
+                                    new SugarParameter("@bizbillno", apCloseBill.bizbillno),
+                                    new SugarParameter("@cVouchCode", apCloseBill.cVouchCode)
                                     });
 
                                 //是否存在扩展自定义项表
@@ -1554,7 +1590,7 @@ public class ApCloseBillService : IApCloseBillService
                             {
                                 //付款单主表
                                 _db.Ado.ExecuteCommand(
-                                    $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13) select N'49',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,null,N'AP','{ZBID}',null,0,0,0,8053,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',null,null,0,N'||ap49|{cVouchID}',cVenBank,cVenAccount,@cNatBank,@cNatBankAccount,@cNoteCode from {u8DbName}..Vendor (nolock) where cVenCode='{cVenCode}'",
+                                    $"Insert Into {u8DbName}..Ap_CloseBill (cVouchType,cVouchID,dVouchDate,iPeriod,cDwCode,cDeptCode,cPerson,cItem_Class,cSSCode,cNoteNo,cCoVouchType,cCoVouchID,cDigest,cexch_name,iExchRate,iAmount,iAmount_f,iRAmount,iRAmount_f,cOperator,cCancelMan,bStartFlag,cCode,iPayForOther,cPzID,cFlag,iID,cCancelNo,bFromBank,bToBank,bSure,VT_ID,cCheckMan,cDefine1,iAmount_s,IsWfControlled,iSource,iverifystate,dcreatesystime,dverifysystime,dverifydate,cPZNum,doutbilldate,iPayType,csysbarcode,cBank,cBankAccount,cNatBank,cNatBankAccount,cDefine13,cDefine14,cDefine12) select N'49',N'{cVouchID}','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}',N'{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),null,N'{cSSCode}',null,null,null,@cDigest,N'{cexch_name}',{iExchRate},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},{apCloseBill.iAmount},@CMAKER,null,0,nullif(N'{KmcCode}',''),0,nullif(N'{coutno_id}',''),N'AP','{ZBID}',null,0,0,0,8053,@CMAKER,@ID,0,null,null,null,GETDATE(),GETDATE(),'{apCloseBill.billDate}',nullif(N'{cPZNum}',''),nullif(N'{doutbilldate}',''),0,N'||ap49|{cVouchID}',cVenBank,cVenAccount,@cNatBank,@cNatBankAccount,@cNoteCode,@bizbillno,@cVouchCode from {u8DbName}..Vendor (nolock) where cVenCode='{cVenCode}'",
                                     new SugarParameter[]
                                     {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
@@ -1562,8 +1598,11 @@ public class ApCloseBillService : IApCloseBillService
                                     new SugarParameter("@ID", apCloseBill.ID),
                                     new SugarParameter("@cNatBank", apCloseBill.cNatBank),
                                     new SugarParameter("@cNatBankAccount", apCloseBill.cNatBankAccount),
-                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode)
+                                    new SugarParameter("@cNoteCode", apCloseBill.cNoteCode),
+                                    new SugarParameter("@bizbillno", apCloseBill.bizbillno),
+                                    new SugarParameter("@cVouchCode", apCloseBill.cVouchCode)
                                     });
+
 
                                 //是否存在扩展自定义项表
                                 string sqlextx = _db.Ado.GetString(
@@ -1576,12 +1615,13 @@ public class ApCloseBillService : IApCloseBillService
 
                                 //主表明细账
                                 _db.Ado.ExecuteCommand(
-                                    $"Insert Into  {u8DbName}..AP_Detail(iPeriod,cVouchType,cVouchID,dVouchDate,dRegDate,cDwCode,cDeptCode,cPerson,iBVid,cCode,iSignSeq,ino_id,cDigest,iPrice,cExch_name,iExchRate,iDAmount,iCAmount,iDAmount_f,iCAmount_f,iDAmount_s,iCAmount_s,cOrderNo,cSSCode,cProcStyle,cCancelNo,cPZid,bPrePay,iFlag,cCoVouchType,cCoVouchID,cFlag,iClosesID,iCoClosesID,cGLSign,iGLno_id,dPZDate,cOperator,cCheckMan,iAmount,iAmount_f,iAmount_s,iVouchAmount,iVouchAmount_f,iVouchAmount_s,cBusType) values('{DateTime.Parse(apCloseBill.billDate).Month}','49','{cVouchID}','{apCloseBill.billDate}','{apCloseBill.billDate}','{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),0,nullif(N'{KmcCode}',''),Null,Null,@cDigest,0,'{cexch_name}','{iExchRate}',0,{apCloseBill.iAmount},0,{apCloseBill.iAmount},0,0,Null,'{cSSCode}','49','AP49{cVouchID}',Null,0,6,'49','{cVouchID}','AP',0,0,Null,Null,'{apCloseBill.billDate}',@CMAKER,@CMAKER,Null,Null,Null,Null,Null,Null,Null)",
+                                    $"Insert Into  {u8DbName}..AP_Detail(iPeriod,cVouchType,cVouchID,dVouchDate,dRegDate,cDwCode,cDeptCode,cPerson,iBVid,cCode,iSignSeq,ino_id,cDigest,iPrice,cExch_name,iExchRate,iDAmount,iCAmount,iDAmount_f,iCAmount_f,iDAmount_s,iCAmount_s,cOrderNo,cSSCode,cProcStyle,cCancelNo,cPZid,bPrePay,iFlag,cCoVouchType,cCoVouchID,cFlag,iClosesID,iCoClosesID,cGLSign,iGLno_id,dPZDate,cOperator,cCheckMan,iAmount,iAmount_f,iAmount_s,iVouchAmount,iVouchAmount_f,iVouchAmount_s,cBusType) values('{DateTime.Parse(apCloseBill.billDate).Month}','49','{cVouchID}','{apCloseBill.billDate}','{apCloseBill.billDate}','{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),0,nullif(N'{KmcCode}',''),nullif(N'{iSignSeqmonth}',''),Null,@cDigest,0,'{cexch_name}','{iExchRate}',0,{apCloseBill.iAmount},0,{apCloseBill.iAmount},0,0,Null,'{cSSCode}','49','AP49{cVouchID}',nullif(N'{coutno_id}',''),0,6,'49','{cVouchID}','AP',0,0,nullif(N'{csign}',''),nullif(N'{ino_id}',''),'{apCloseBill.billDate}',@CMAKER,@CMAKER,Null,Null,Null,Null,Null,Null,Null)",
                                     new SugarParameter[]
                                     {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
                                     new SugarParameter("@CMAKER", apCloseBill.CMAKER)
                                     });
+
                             }
 
                             #endregion
@@ -1647,7 +1687,7 @@ public class ApCloseBillService : IApCloseBillService
                             {
                                 //子表明细账
                                 _db.Ado.ExecuteCommand(
-                                    $"Insert Into  {u8DbName}..AP_Detail(iPeriod,cVouchType,cVouchID,dVouchDate,dRegDate,cDwCode,cDeptCode,cPerson,iBVid,cCode,iSignSeq,ino_id,cDigest,iPrice,cExch_name,iExchRate,iDAmount,iCAmount,iDAmount_f,iCAmount_f,iDAmount_s,iCAmount_s,cOrderNo,cSSCode,cProcStyle,cCancelNo,cPZid,bPrePay,iFlag,cCoVouchType,cCoVouchID,cFlag,iClosesID,iCoClosesID,cGLSign,iGLno_id,dPZDate,cOperator,cCheckMan,iAmount,iAmount_f,iAmount_s,iVouchAmount,iVouchAmount_f,iVouchAmount_s,cBusType) values('{DateTime.Parse(apCloseBill.billDate).Month}','49','{cVouchID}','{apCloseBill.billDate}','{apCloseBill.billDate}','{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),0,nullif(N'{cKm}',''),Null,Null,@cDigest,0,'{cexch_name}','{iExchRate}',{apCloseBill.iAmount},0,{apCloseBill.iAmount},0,0,0,Null,'{cSSCode}','49','AP49{cVouchID}',Null,{bPrePay},{iFlag},'49','{cVouchID}','AP','{ZBIDs}','{ZBIDs}',Null,Null,'{apCloseBill.billDate}',@CMAKER,@CMAKER,{apCloseBill.iAmount},{apCloseBill.iAmount},0,{apCloseBill.iAmount},{apCloseBill.iAmount},0,Null)",
+                                    $"Insert Into  {u8DbName}..AP_Detail(iPeriod,cVouchType,cVouchID,dVouchDate,dRegDate,cDwCode,cDeptCode,cPerson,iBVid,cCode,iSignSeq,ino_id,cDigest,iPrice,cExch_name,iExchRate,iDAmount,iCAmount,iDAmount_f,iCAmount_f,iDAmount_s,iCAmount_s,cOrderNo,cSSCode,cProcStyle,cCancelNo,cPZid,bPrePay,iFlag,cCoVouchType,cCoVouchID,cFlag,iClosesID,iCoClosesID,cGLSign,iGLno_id,dPZDate,cOperator,cCheckMan,iAmount,iAmount_f,iAmount_s,iVouchAmount,iVouchAmount_f,iVouchAmount_s,cBusType) values('{DateTime.Parse(apCloseBill.billDate).Month}','49','{cVouchID}','{apCloseBill.billDate}','{apCloseBill.billDate}','{cVenCode}','{cDepCode}',nullif(N'{cPersonCode}',''),0,nullif(N'{cKm}',''),nullif(N'{iSignSeqmonth}',''),nullif(N'{iSignino_id}',''),@cDigest,0,'{cexch_name}','{iExchRate}',{apCloseBill.iAmount},0,{apCloseBill.iAmount},0,0,0,Null,'{cSSCode}','49','AP49{cVouchID}',nullif(N'{coutno_id}',''),{bPrePay},{iFlag},'49','{cVouchID}','AP','{ZBIDs}','{ZBIDs}',nullif(N'{csign}',''),nullif(N'{ino_id}',''),'{apCloseBill.billDate}',@CMAKER,@CMAKER,{apCloseBill.iAmount},{apCloseBill.iAmount},0,{apCloseBill.iAmount},{apCloseBill.iAmount},0,Null)",
                                     new SugarParameter[]
                                     {
                                     new SugarParameter("@cDigest", apCloseBill.cDigest),
@@ -1656,6 +1696,99 @@ public class ApCloseBillService : IApCloseBillService
                             }
 
                             #endregion
+
+
+                            #region 票据背书凭证生成
+
+                            //单据来源票据
+                            if (boolisPZ)
+                            {
+                                //借方科目（应付账款or预付账款）
+                                string mdCode = cKm;
+
+                                //贷方科目（应收票据）
+                                string mcCode = "";
+                                //表头结算科目（应收票据科目）
+                                if (apCloseBill.orgCode == "1003" || apCloseBill.orgCode == "1004")
+                                {
+                                    mcCode = "1121";
+                                }
+                                else
+                                {
+                                    if (apCloseBill.cSSName == "银行承兑汇票")
+                                    {
+                                        mcCode = "112101";
+                                    }
+                                    else if (apCloseBill.cSSName == "商业承兑汇票")
+                                    {
+                                        mcCode = "112103";
+                                    }
+                                    else if (apCloseBill.cSSName == "债权凭证")
+                                    {
+                                        mcCode = "112102";
+                                    }
+                                    else
+                                    {
+                                        mcCode = "112104";
+                                    }
+                                }
+
+                                //判断借方科目是否存在
+                                string ccode =
+                                    _db.Ado.GetString(
+                                        $"select ccode from {u8DbName}..code (nolock) where iyear='{DateTime.Parse(apCloseBill.billDate).Year}' and ccode='{mdCode}' and bend=1");
+
+                                if (string.IsNullOrWhiteSpace(ccode))
+                                {
+                                    throw new Exception("科目编码[" + mdCode + "]在U8账套号[" + u8AccId + "]会计科目中不存在");
+                                }
+
+                                //判断贷方科目是否存在
+                                ccode = _db.Ado.GetString(
+                                    $"select ccode from {u8DbName}..code (nolock) where iyear='{DateTime.Parse(apCloseBill.billDate).Year}' and ccode='{mcCode}' and bend=1");
+
+                                if (string.IsNullOrWhiteSpace(ccode))
+                                {
+                                    throw new Exception("科目编码[" + mcCode + "]在U8账套号[" + u8AccId + "]会计科目中不存在");
+                                }
+
+                                await _db.Ado.BeginTranAsync();
+
+                                int inid = 1;
+
+                                string RowGuid = Guid.NewGuid().ToString().Replace("-", "") + "00000000";
+
+                                //摘要
+                                string cdigest = apCloseBill.cDigest;
+
+                                #region 付款单票据背书凭证生成
+
+                                apCloseBill.CMAKER = "ys同步";
+
+                                //凭证借方（应付账款or预付账款）
+                                _db.Ado.ExecuteCommand(
+                                    $"insert into {u8DbName}..GL_accvouch(iperiod,csign,isignseq,ino_id,inid,dbill_date,idoc,cbill,ibook,cdigest,ccode,md,mc,md_f,mc_f,nfrat,nd_s,nc_s,csettle,dt_date,cdept_id,cperson_id,ccus_id,csup_id,citem_id,citem_class,cname,ccode_equal,bdelete,coutaccset,ioutyear,coutsysname,doutbilldate,ioutperiod,coutsign,coutno_id,doutdate,coutbillsign,coutid,bvouchedit,bvouchAddordele,bvouchmoneyhold,bvalueedit,bcodeedit,ccodecontrol,bPCSedit,bDeptedit,bItemedit,bCusSupInput,cDefine12,cDefine13,cDefine14,bFlagOut,RowGuid,iyear,iYPeriod,tvouchtime,ccodeexch_equal) values('{DateTime.Parse(apCloseBill.billDate).Month}','{csign}','{isignseq}','{ino_id}','{inid}','{apCloseBill.billDate}','1','{apCloseBill.CMAKER}',0,'{cdigest}','{mdCode}','{apCloseBill.iAmount}',0,0,0,0,0,0,Null,Null,nullif(N'{cDepCode}',''),nullif(N'{cPersonCode}',''),Null,'{cVenCode}',Null,Null,'-','{mcCode}',0,'{u8AccId}','{DateTime.Parse(apCloseBill.billDate).Year}','AP','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}','RP','{coutno_id}','{apCloseBill.billDate}','49','{cVouchID}',1,1,0,0,1,'AP',0,1,1,0,'{apCloseBill.cVouchCode}','{apCloseBill.cNoteCode}','票据背书',0,'{RowGuid}','{DateTime.Parse(apCloseBill.billDate).Year}',CONVERT(varchar(6),cast('{apCloseBill.billDate}' as datetime),112),getdate(),'{mcCode}')");
+
+                                inid = inid + 1;
+
+                                RowGuid = Guid.NewGuid().ToString().Replace("-", "") + "00000000";
+
+                                //贷方（应收票据科目）
+                                _db.Ado.ExecuteCommand(
+                                    $"insert into {u8DbName}..GL_accvouch(iperiod,csign,isignseq,ino_id,inid,dbill_date,idoc,cbill,ibook,cdigest,ccode,md,mc,md_f,mc_f,nfrat,nd_s,nc_s,csettle,dt_date,cdept_id,cperson_id,ccus_id,csup_id,citem_id,citem_class,cname,ccode_equal,bdelete,coutaccset,ioutyear,coutsysname,doutbilldate,ioutperiod,coutsign,coutno_id,doutdate,coutbillsign,coutid,bvouchedit,bvouchAddordele,bvouchmoneyhold,bvalueedit,bcodeedit,ccodecontrol,bPCSedit,bDeptedit,bItemedit,bCusSupInput,cDefine12,cDefine13,cDefine14,bFlagOut,RowGuid,iyear,iYPeriod,tvouchtime,ccodeexch_equal) values('{DateTime.Parse(apCloseBill.billDate).Month}','{csign}','{isignseq}','{ino_id}','{inid}','{apCloseBill.billDate}','1','{apCloseBill.CMAKER}',0,'{cdigest}','{mcCode}','0','{apCloseBill.iAmount}',0,0,0,0,0,Null,Null,nullif(N'{cDepCode}',''),nullif(N'{cPersonCode}',''),'{PayerCode}',Null,Null,Null,Null,'{mdCode}',0,'{u8AccId}','{DateTime.Parse(apCloseBill.billDate).Year}','AP','{apCloseBill.billDate}','{DateTime.Parse(apCloseBill.billDate).Month}','RP','{coutno_id}','{apCloseBill.billDate}','49','{cVouchID}',1,1,0,1,1,'! AR AP #',1,1,1,1,'{apCloseBill.cVouchCode}','{apCloseBill.cNoteCode}','票据背书',0,'{RowGuid}','{DateTime.Parse(apCloseBill.billDate).Year}',CONVERT(varchar(6),cast('{apCloseBill.billDate}' as datetime),112),getdate(),'{mdCode}')");
+
+                                #endregion
+
+                                //查询凭证是否重复生成
+                                string counts = _db.Ado.GetString(
+                                    $"select count(1) from {u8DbName}..gl_accvouch (nolock) where iperiod='{DateTime.Parse(apCloseBill.billDate).Month}' and isignseq='{isignseq}' and csign='{csign}' and iyear='{DateTime.Parse(apCloseBill.billDate).Year}' and ino_id='{ino_id}' and inid='1'");
+
+                                if (int.Parse(counts) > 1)
+                                {
+                                    throw new Exception("U8业务账套号[" + u8AccId + "]凭证号获取重复，请重试");
+                                }
+                            }
+                            #endregion 
 
                             await _db.Ado.CommitTranAsync();
 
